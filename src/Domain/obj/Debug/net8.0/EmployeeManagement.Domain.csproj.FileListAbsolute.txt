@@ -1,0 +1,11 @@
+/home/tts/EmployeeManagement/src/Domain/bin/Debug/net8.0/EmployeeManagement.Domain.deps.json
+/home/tts/EmployeeManagement/src/Domain/bin/Debug/net8.0/EmployeeManagement.Domain.dll
+/home/tts/EmployeeManagement/src/Domain/bin/Debug/net8.0/EmployeeManagement.Domain.pdb
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.AssemblyInfoInputs.cache
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.AssemblyInfo.cs
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.csproj.CoreCompileInputs.cache
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.dll
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/refint/EmployeeManagement.Domain.dll
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.pdb
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/ref/EmployeeManagement.Domain.dll

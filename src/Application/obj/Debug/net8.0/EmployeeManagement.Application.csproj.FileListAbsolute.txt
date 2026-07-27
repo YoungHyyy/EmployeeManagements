@@ -1,0 +1,15 @@
+/home/tts/EmployeeManagement/src/Application/bin/Debug/net8.0/EmployeeManagement.Application.deps.json
+/home/tts/EmployeeManagement/src/Application/bin/Debug/net8.0/EmployeeManagement.Application.dll
+/home/tts/EmployeeManagement/src/Application/bin/Debug/net8.0/EmployeeManagement.Application.pdb
+/home/tts/EmployeeManagement/src/Application/bin/Debug/net8.0/EmployeeManagement.Domain.dll
+/home/tts/EmployeeManagement/src/Application/bin/Debug/net8.0/EmployeeManagement.Domain.pdb
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.csproj.AssemblyReference.cache
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.GeneratedMSBuildEditorConfig.editorconfig
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.AssemblyInfoInputs.cache
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.AssemblyInfo.cs
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.csproj.CoreCompileInputs.cache
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.csproj.CopyComplete
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.dll
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/refint/EmployeeManagement.Application.dll
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.pdb
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/ref/EmployeeManagement.Application.dll
