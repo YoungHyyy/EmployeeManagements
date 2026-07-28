@@ -1,5 +1,4 @@
 using System.Data;
-using System.Data;
 using MySqlConnector;
 using EmployeeManagement.Application.Interfaces;
 

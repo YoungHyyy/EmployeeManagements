@@ -119,3 +119,4 @@
 /home/tts/EmployeeManagement/tests/EmployeeManagement.Tests/bin/Debug/net8.0/Microsoft.IdentityModel.Logging.dll
 /home/tts/EmployeeManagement/tests/EmployeeManagement.Tests/bin/Debug/net8.0/Microsoft.IdentityModel.Tokens.dll
 /home/tts/EmployeeManagement/tests/EmployeeManagement.Tests/bin/Debug/net8.0/System.IdentityModel.Tokens.Jwt.dll
+/home/tts/EmployeeManagement/tests/EmployeeManagement.Tests/obj/Debug/net8.0/EmployeeManagement.Tests.sourcelink.json

@@ -1,12 +1,15 @@
 using System.Threading.Tasks;
+using EmployeeManagement.Api.Authentication;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;

@@ -9,3 +9,4 @@
 /home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/refint/EmployeeManagement.Domain.dll
 /home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.pdb
 /home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/ref/EmployeeManagement.Domain.dll
+/home/tts/EmployeeManagement/src/Domain/obj/Debug/net8.0/EmployeeManagement.Domain.sourcelink.json

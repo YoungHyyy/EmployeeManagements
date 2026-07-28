@@ -13,3 +13,4 @@
 /home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/refint/EmployeeManagement.Application.dll
 /home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.pdb
 /home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/ref/EmployeeManagement.Application.dll
+/home/tts/EmployeeManagement/src/Application/obj/Debug/net8.0/EmployeeManagement.Application.sourcelink.json

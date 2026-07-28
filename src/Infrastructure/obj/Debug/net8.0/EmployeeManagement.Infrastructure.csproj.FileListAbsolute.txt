@@ -15,3 +15,4 @@
 /home/tts/EmployeeManagement/src/Infrastructure/obj/Debug/net8.0/refint/EmployeeManagement.Infrastructure.dll
 /home/tts/EmployeeManagement/src/Infrastructure/obj/Debug/net8.0/EmployeeManagement.Infrastructure.pdb
 /home/tts/EmployeeManagement/src/Infrastructure/obj/Debug/net8.0/ref/EmployeeManagement.Infrastructure.dll
+/home/tts/EmployeeManagement/src/Infrastructure/obj/Debug/net8.0/EmployeeManagement.Infrastructure.sourcelink.json

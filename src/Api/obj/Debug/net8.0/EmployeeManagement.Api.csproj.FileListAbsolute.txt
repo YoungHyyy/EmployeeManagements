@@ -76,3 +76,4 @@
 /home/tts/EmployeeManagement/src/Api/bin/Debug/net8.0/System.Text.Encodings.Web.dll
 /home/tts/EmployeeManagement/src/Api/bin/Debug/net8.0/System.Text.Json.dll
 /home/tts/EmployeeManagement/src/Api/bin/Debug/net8.0/runtimes/browser/lib/net8.0/System.Text.Encodings.Web.dll
+/home/tts/EmployeeManagement/src/Api/obj/Debug/net8.0/EmployeeManagement.Api.sourcelink.json

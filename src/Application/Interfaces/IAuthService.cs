@@ -7,5 +7,9 @@ namespace EmployeeManagement.Application.Interfaces
     {
         Task<AuthResponse> RegisterAsync(RegisterRequest request);
         Task<AuthResponse> LoginAsync(LoginRequest request);
+        Task<AuthResponse> RefreshTokenAsync(string refreshToken);
+        Task<AuthResponse> LogoutAsync(string refreshToken);
+        Task<AuthResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request);
+        Task<AuthResponse> ForgotPasswordAsync(ForgotPasswordRequest request);
     }
 }

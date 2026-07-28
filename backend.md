@@ -419,8 +419,8 @@ Viết tối thiểu 10 Unit Test cho tầng Application.
 
 ## Khuyến khích
 
--   Redis Cache.
--   Rate Limiting.
+-   Redis Cache.//
+-   Rate Limiting.//gioi han so lan request
 -   Health Check.
 -   Global Response Wrapper.
 -   API Versioning.
