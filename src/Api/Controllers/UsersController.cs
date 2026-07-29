@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using System.Security.Claims;
 using EmployeeManagement.Api.Authentication;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
@@ -13,10 +14,12 @@ namespace EmployeeManagement.Api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IUserRepository _userRepository;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, IUserRepository userRepository)
         {
             _userService = userService;
+            _userRepository = userRepository;
         }
 
         [HttpGet]
@@ -50,6 +53,29 @@ namespace EmployeeManagement.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            // Prevent deleting own account
+            var currentIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrWhiteSpace(currentIdClaim) && int.TryParse(currentIdClaim, out var currentId))
+            {
+                if (currentId == id)
+                {
+                    return BadRequest(new { message = "Cannot delete your own account" });
+                }
+            }
+            else
+            {
+                // Fallback: attempt to resolve by email
+                var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
+                if (!string.IsNullOrWhiteSpace(email))
+                {
+                    var currentUser = await _userRepository.GetByEmailAsync(email);
+                    if (currentUser != null && currentUser.Id == id)
+                    {
+                        return BadRequest(new { message = "Cannot delete your own account" });
+                    }
+                }
+            }
+
             await _userService.DeleteAsync(id);
             return NoContent();
         }

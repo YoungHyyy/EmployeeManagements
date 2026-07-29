@@ -13,10 +13,12 @@ namespace EmployeeManagement.Api.Controllers;
 public class PositionsController : ControllerBase
 {
     private readonly IPositionRepository _repository;
+    private readonly IEmployeeRepository _employeeRepository;
 
-    public PositionsController(IPositionRepository repository)
+    public PositionsController(IPositionRepository repository, IEmployeeRepository employeeRepository)
     {
         _repository = repository;
+        _employeeRepository = employeeRepository;
     }
 
     [HttpGet]
@@ -68,6 +70,13 @@ public class PositionsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
+        // Check if any employees are linked to this position
+        var linkedEmployees = await _employeeRepository.ListAsync(1, 1, null, null, id, null);
+        if (linkedEmployees.Any())
+        {
+            return BadRequest(new { message = "Cannot delete position while employees are linked to it" });
+        }
+
         await _repository.SoftDeleteAsync(id);
         return NoContent();
     }

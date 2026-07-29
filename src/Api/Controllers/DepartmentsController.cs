@@ -13,10 +13,12 @@ namespace EmployeeManagement.Api.Controllers;
 public class DepartmentsController : ControllerBase
 {
     private readonly IDepartmentRepository _repository;
+    private readonly IEmployeeRepository _employeeRepository;
 
-    public DepartmentsController(IDepartmentRepository repository)
+    public DepartmentsController(IDepartmentRepository repository, IEmployeeRepository employeeRepository)
     {
         _repository = repository;
+        _employeeRepository = employeeRepository;
     }
 
     [HttpGet]
@@ -66,6 +68,13 @@ public class DepartmentsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
+        // Check if any employees are linked to this department
+        var linkedEmployees = await _employeeRepository.ListAsync(1, 1, null, id, null, null);
+        if (linkedEmployees.Any())
+        {
+            return BadRequest(new { message = "Cannot delete department while employees are linked to it" });
+        }
+
         await _repository.SoftDeleteAsync(id);
         return NoContent();
     }

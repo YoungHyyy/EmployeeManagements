@@ -179,6 +179,31 @@ namespace EmployeeManagement.Application.Services
             return new AuthResponse { Success = true, Message = $"OTP generated: {otp}" };
         }
 
+        public async Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            if (request.NewPassword != request.ConfirmPassword)
+                return new AuthResponse { Success = false, Message = "New password and confirm password do not match" };
+
+            using var conn = _dbFactory.CreateConnection();
+            var user = await conn.QueryFirstOrDefaultAsync<dynamic>("SELECT Id, OtpCode, OtpExpiration FROM Users WHERE Email = @Email AND IsDeleted = 0 LIMIT 1", new { request.Email });
+            if (user == null)
+                return new AuthResponse { Success = false, Message = "User not found" };
+
+            var storedOtp = (string?)user.OtpCode;
+            var otpExpiration = (DateTime?)user.OtpExpiration;
+
+            if (string.IsNullOrWhiteSpace(storedOtp) || !string.Equals(storedOtp, request.OtpCode, StringComparison.Ordinal))
+                return new AuthResponse { Success = false, Message = "Invalid OTP code" };
+
+            if (!otpExpiration.HasValue || otpExpiration.Value < DateTime.Now)
+                return new AuthResponse { Success = false, Message = "OTP has expired" };
+
+            var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await conn.ExecuteAsync(@"UPDATE Users SET PasswordHash = @PasswordHash, OtpCode = NULL, OtpExpiration = NULL, UpdatedAt = NOW() WHERE Id = @Id", new { PasswordHash = newHash, Id = (int)user.Id });
+
+            return new AuthResponse { Success = true, Message = "Password reset successfully" };
+        }
+
         private async Task<string> GetUserRoleCodeAsync(int userId)
         {
             using var conn = _dbFactory.CreateConnection();

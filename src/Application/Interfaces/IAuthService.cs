@@ -11,5 +11,6 @@ namespace EmployeeManagement.Application.Interfaces
         Task<AuthResponse> LogoutAsync(string refreshToken);
         Task<AuthResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request);
         Task<AuthResponse> ForgotPasswordAsync(ForgotPasswordRequest request);
+        Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request);
     }
 }

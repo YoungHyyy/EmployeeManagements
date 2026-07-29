@@ -86,5 +86,12 @@ namespace EmployeeManagement.Api.Controllers
             var result = await _authService.ForgotPasswordAsync(request);
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var result = await _authService.ResetPasswordAsync(request);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
     }
 }
