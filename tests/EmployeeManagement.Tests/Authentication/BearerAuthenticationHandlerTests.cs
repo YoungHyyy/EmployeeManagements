@@ -1,10 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Encodings.Web;
 using EmployeeManagement.Api.Authentication;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -47,9 +49,18 @@ public class BearerAuthenticationHandlerTests
 
     private static BearerAuthenticationHandler CreateHandler()
     {
-        var options = Options.Create(new AuthenticationSchemeOptions());
+        var options = new AuthenticationSchemeOptions();
         var optionsMonitor = new TestOptionsMonitor<AuthenticationSchemeOptions>(options);
-        return new BearerAuthenticationHandler(optionsMonitor, NullLoggerFactory.Instance, new TestUrlEncoder());
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "12345678901234567890123456789012",
+                ["Jwt:Issuer"] = "EmployeeManagement",
+                ["Jwt:Audience"] = "EmployeeManagement"
+            })
+            .Build();
+
+        return new BearerAuthenticationHandler(optionsMonitor, NullLoggerFactory.Instance, UrlEncoder.Default, configuration);
     }
 
     private static string CreateToken(string email, string role)
@@ -89,8 +100,4 @@ public class BearerAuthenticationHandlerTests
         public void Dispose() { }
     }
 
-    private sealed class TestUrlEncoder : UrlEncoder
-    {
-        public TestUrlEncoder() : base() { }
-    }
 }

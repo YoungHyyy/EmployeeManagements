@@ -67,7 +67,7 @@ public class BearerAuthenticationHandler : AuthenticationHandler<AuthenticationS
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }
-        catch (SecurityTokenException ex)
+        catch (Exception ex)
         {
             return Task.FromResult(AuthenticateResult.Fail(ex));
         }

@@ -35,25 +35,33 @@ namespace EmployeeManagement.Application.Services
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
         {
             if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
-                return new AuthResponse { Success = false, Message = "Password and confirm password do not match" };
+                return new AuthResponse { Success = false, Message = "Mật khẩu và mật khẩu xác nhận không khớp" };
 
             using var conn = _dbFactory.CreateConnection();
             var exists = await conn.QueryFirstOrDefaultAsync<int?>("SELECT 1 FROM Users WHERE Email = @Email LIMIT 1", new { request.Email });
             if (exists.HasValue)
-                return new AuthResponse { Success = false, Message = "Email already exists" };
+                return new AuthResponse { Success = false, Message = "Email đã tồn tại" };
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             var sql = @"INSERT INTO Users (FullName, Email, PasswordHash, PhoneNumber, CreatedAt)
                         VALUES (@FullName, @Email, @PasswordHash, @PhoneNumber, NOW()); SELECT LAST_INSERT_ID();";
             var userId = await conn.ExecuteScalarAsync<int>(sql, new { request.FullName, request.Email, PasswordHash = passwordHash, request.PhoneNumber });
 
-            var employeeRoleId = await _roleRepository.GetRoleIdByCodeAsync("EMPLOYEE");
-            if (employeeRoleId.HasValue)
+            var roleCode = string.IsNullOrWhiteSpace(request.RoleCode) ? "EMPLOYEE" : request.RoleCode.ToUpperInvariant();
+            var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
+            if (roleId.HasValue)
             {
-                await _roleRepository.AssignRoleAsync(userId, employeeRoleId.Value);
+                await _roleRepository.AssignRoleAsync(userId, roleId.Value);
+            }
+            else
+            {
+                var defaultRoleId = await _roleRepository.GetRoleIdByCodeAsync("EMPLOYEE");
+                if (defaultRoleId.HasValue)
+                    await _roleRepository.AssignRoleAsync(userId, defaultRoleId.Value);
+                roleCode = "EMPLOYEE";
             }
 
-            var accessToken = GenerateJwtToken(userId, request.Email, "EMPLOYEE");
+            var accessToken = GenerateJwtToken(userId, request.Email, roleCode);
             var rawRefreshToken = Guid.NewGuid().ToString("N");
             var refreshTokenHash = HashToken(rawRefreshToken);
 
@@ -61,13 +69,13 @@ namespace EmployeeManagement.Application.Services
             {
                 UserId = userId,
                 TokenHash = refreshTokenHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                ExpiresAt = DateTime.UtcNow.AddDays(7),// Set the expiration to 7 days from now
                 IsUsed = false,
                 IsRevoked = false,
                 CreatedAt = DateTime.UtcNow
             });
 
-            return new AuthResponse { Success = true, Message = "Registered", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
+            return new AuthResponse { Success = true, Message = "Đăng ký thành công", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -75,11 +83,11 @@ namespace EmployeeManagement.Application.Services
             using var conn = _dbFactory.CreateConnection();
             var user = await conn.QueryFirstOrDefaultAsync<dynamic>("SELECT Id, Email, PasswordHash FROM Users WHERE Email = @Email LIMIT 1", new { request.Email });
             if (user == null)
-                return new AuthResponse { Success = false, Message = "Invalid credentials" };
+                return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
 
             var passwordHash = (string)user.PasswordHash;
             if (!BCrypt.Net.BCrypt.Verify(request.Password, passwordHash))
-                return new AuthResponse { Success = false, Message = "Invalid credentials" };
+                return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
 
             var roleCode = await GetUserRoleCodeAsync((int)user.Id);
             var accessToken = GenerateJwtToken((int)user.Id, (string)user.Email, roleCode);
@@ -96,20 +104,20 @@ namespace EmployeeManagement.Application.Services
                 CreatedAt = DateTime.UtcNow
             });
 
-            return new AuthResponse { Success = true, Message = "Logged in", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
+            return new AuthResponse { Success = true, Message = "Đăng nhập thành công", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
         }
 
         public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
-                return new AuthResponse { Success = false, Message = "Invalid refresh token" };
+                return new AuthResponse { Success = false, Message = "Refresh token không hợp lệ" };
 
             var tokenHash = HashToken(refreshToken);
             var storedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash);
 
             if (storedToken == null || storedToken.IsRevoked || storedToken.IsUsed || storedToken.ExpiresAt <= DateTime.UtcNow)
             {
-                return new AuthResponse { Success = false, Message = "Invalid refresh token" };
+                return new AuthResponse { Success = false, Message = "Refresh token không hợp lệ" };
             }
 
             using var conn = _dbFactory.CreateConnection();

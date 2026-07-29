@@ -39,6 +39,12 @@ namespace EmployeeManagement.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
+            var existing = await _userRepository.GetByEmailAsync(req.Email);
+            if (existing != null)
+            {
+                return BadRequest(new { message = "Email đã tồn tại" });
+            }
+
             var created = await _userService.CreateAsync(req);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
@@ -59,7 +65,7 @@ namespace EmployeeManagement.Api.Controllers
             {
                 if (currentId == id)
                 {
-                    return BadRequest(new { message = "Cannot delete your own account" });
+                    return BadRequest(new { message = "Không thể xóa tài khoản của chính mình" });
                 }
             }
             else

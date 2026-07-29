@@ -72,7 +72,7 @@ public class DepartmentsController : ControllerBase
         var linkedEmployees = await _employeeRepository.ListAsync(1, 1, null, id, null, null);
         if (linkedEmployees.Any())
         {
-            return BadRequest(new { message = "Cannot delete department while employees are linked to it" });
+            return BadRequest(new { message = "Không thể xóa phòng ban khi vẫn còn nhân viên liên kết" });
         }
 
         await _repository.SoftDeleteAsync(id);

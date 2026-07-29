@@ -43,7 +43,7 @@ namespace EmployeeManagement.Tests.Authentication
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
-            result.Message.Should().Be("Invalid refresh token");
+            result.Message.Should().Be("Refresh token không hợp lệ");
         }
 
         [Fact]
@@ -59,7 +59,7 @@ namespace EmployeeManagement.Tests.Authentication
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
-            result.Message.Should().Be("Invalid refresh token");
+            result.Message.Should().Be("Refresh token không hợp lệ");
         }
 
         [Fact]
@@ -84,7 +84,7 @@ namespace EmployeeManagement.Tests.Authentication
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
-            result.Message.Should().Be("Invalid refresh token");
+            result.Message.Should().Be("Refresh token không hợp lệ");
         }
 
         [Fact]
@@ -109,7 +109,7 @@ namespace EmployeeManagement.Tests.Authentication
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
-            result.Message.Should().Be("Invalid refresh token");
+            result.Message.Should().Be("Refresh token không hợp lệ");
         }
 
         [Fact]

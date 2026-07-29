@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Threading.Tasks;
+using EmployeeManagement.Api.Authentication;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -20,6 +21,7 @@ namespace EmployeeManagement.Api.Controllers
             _userRepository = userRepository;
         }
 
+        [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {

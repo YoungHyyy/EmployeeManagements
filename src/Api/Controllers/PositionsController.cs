@@ -74,7 +74,7 @@ public class PositionsController : ControllerBase
         var linkedEmployees = await _employeeRepository.ListAsync(1, 1, null, null, id, null);
         if (linkedEmployees.Any())
         {
-            return BadRequest(new { message = "Cannot delete position while employees are linked to it" });
+            return BadRequest(new { message = "Không thể xóa chức vụ khi vẫn còn nhân viên liên kết" });
         }
 
         await _repository.SoftDeleteAsync(id);

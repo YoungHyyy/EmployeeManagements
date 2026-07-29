@@ -9,7 +9,7 @@ namespace EmployeeManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class EmployeesController : ControllerBase
 {
     private readonly IEmployeeRepository _repository;

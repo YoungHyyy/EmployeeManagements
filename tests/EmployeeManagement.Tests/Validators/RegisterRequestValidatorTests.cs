@@ -33,6 +33,7 @@ public class RegisterRequestValidatorTests
             FullName = "Nguyen Van A",
             Email = "a.nguyen@example.com",
             Password = "Abcdef1!",
+            ConfirmPassword = "Abcdef1!",
             PhoneNumber = "0901234567"
         };
 

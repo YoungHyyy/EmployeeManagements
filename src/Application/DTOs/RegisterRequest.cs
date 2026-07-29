@@ -7,5 +7,6 @@ namespace EmployeeManagement.Application.DTOs
         public string Password { get; set; } = string.Empty;
         public string ConfirmPassword { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
+        public string RoleCode { get; set; } = "EMPLOYEE";
     }
 }

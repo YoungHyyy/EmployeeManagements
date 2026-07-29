@@ -10,10 +10,12 @@ namespace EmployeeManagement.Application.Services
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepo;
+        private readonly IRoleRepository _roleRepository;
 
-        public UserService(IUserRepository userRepo)
+        public UserService(IUserRepository userRepo, IRoleRepository roleRepository)
         {
             _userRepo = userRepo;
+            _roleRepository = roleRepository;
         }
 
         public async Task<UserResponse> CreateAsync(CreateUserRequest request)
@@ -27,6 +29,19 @@ namespace EmployeeManagement.Application.Services
                 IsActive = true
             };
             var id = await _userRepo.CreateAsync(user);
+
+            var roleCode = string.IsNullOrWhiteSpace(request.RoleCode) ? "EMPLOYEE" : request.RoleCode.ToUpperInvariant();
+            var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
+            if (!roleId.HasValue)
+            {
+                roleId = await _roleRepository.GetRoleIdByCodeAsync("EMPLOYEE");
+            }
+
+            if (roleId.HasValue)
+            {
+                await _roleRepository.AssignRoleAsync(id, roleId.Value);
+            }
+
             var created = await _userRepo.GetByIdAsync(id);
             return Map(created!);
         }
