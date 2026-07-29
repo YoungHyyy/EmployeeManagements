@@ -108,3 +108,18 @@ Updated: 2026-07-28 00:00
 - Tất cả logic dữ liệu phải đi qua Service/Repository và Dapper.
 - Ưu tiên làm đúng kiến trúc và business rule trước khi mở rộng tính năng.
 
+## Tiến độ cập nhật
+
+- Ngày: 2026-07-29
+- Những việc đã thực hiện:
+  - Bổ sung quy tắc nghiệp vụ: chặn xóa Phòng ban/Chức vụ nếu còn nhân viên liên kết.
+  - Ngăn người dùng tự xóa tài khoản trong UsersController.
+  - Thêm API reset-password (POST /api/auth/reset-password) kèm DTO và validator; triển khai xác thực OTP và cập nhật mật khẩu.
+  - Chuyển các thông báo mới sang tiếng Việt (thông báo xóa, auth, reset password).
+- Trạng thái build:
+  - Xây dựng project API (src/Api) thành công.
+  - Xây dựng toàn bộ solution gặp lỗi không liên quan (một dự án test thiếu tham chiếu UrlEncoder) — lỗi này không phải do các thay đổi hiện tại gây ra.
+- Bước tiếp theo đề xuất:
+  - Thêm unit tests cho các business rules và reset-password.
+  - Cân nhắc tạo phương thức repository chuyên dụng để kiểm tra tồn tại nhân viên liên kết (ví dụ ExistsByDepartmentId/ExistsByPositionId) để tối ưu hiệu suất.
+
