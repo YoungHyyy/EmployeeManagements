@@ -1,26 +1,27 @@
-using Dapper;
 using EmployeeManagement.Application.Interfaces;
 
 namespace EmployeeManagement.Infrastructure.Repositories;
 
-public class RoleRepository : IRoleRepository
+public class RoleRepository : BaseRepository<object>, IRoleRepository
 {
-    private readonly IDbConnectionFactory _dbFactory;
-
-    public RoleRepository(IDbConnectionFactory dbFactory)
+    public RoleRepository(IDbConnectionFactory dbFactory) : base(dbFactory)
     {
-        _dbFactory = dbFactory;
     }
 
     public async Task<int?> GetRoleIdByCodeAsync(string roleCode)
     {
-        using var conn = _dbFactory.CreateConnection();
-        return await conn.ExecuteScalarAsync<int?>("SELECT Id FROM Roles WHERE Code = @Code AND IsDeleted = 0 LIMIT 1", new { Code = roleCode });
+        return await QueryScalarAsync<int?>("SELECT Id FROM Roles WHERE Code = @Code AND IsDeleted = 0 LIMIT 1", new { Code = roleCode });
     }
 
     public async Task AssignRoleAsync(int userId, int roleId)
     {
-        using var conn = _dbFactory.CreateConnection();
-        await conn.ExecuteAsync("INSERT IGNORE INTO UserRoles (UserId, RoleId, CreatedAt) VALUES (@UserId, @RoleId, NOW())", new { UserId = userId, RoleId = roleId });
+        await ExecuteAsync("INSERT IGNORE INTO UserRoles (UserId, RoleId, CreatedAt) VALUES (@UserId, @RoleId, NOW())", new { UserId = userId, RoleId = roleId });
+    }
+
+    public async Task<string?> GetRoleCodeByUserIdAsync(int userId)
+    {
+        return await QueryScalarAsync<string?>(@"SELECT r.Code FROM UserRoles ur
+            JOIN Roles r ON ur.RoleId = r.Id
+            WHERE ur.UserId = @UserId AND ur.IsDeleted = 0 AND r.IsDeleted = 0 LIMIT 1", new { UserId = userId });
     }
 }

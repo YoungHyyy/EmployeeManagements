@@ -13,24 +13,25 @@ namespace EmployeeManagement.Tests.Authentication
 {
     public class AuthServiceTests
     {
-        private readonly Mock<IDbConnectionFactory> _dbFactoryMock;
-        private readonly Mock<IConfiguration> _configMock;
+        private readonly Mock<IUserRepository> _userRepoMock;
         private readonly Mock<IRoleRepository> _roleRepoMock;
         private readonly Mock<IRefreshTokenRepository> _refreshTokenRepoMock;
+        private readonly Mock<ITokenService> _tokenServiceMock;
         private readonly AuthService _authService;
 
         public AuthServiceTests()
         {
-            _dbFactoryMock = new Mock<IDbConnectionFactory>();
-            _configMock = new Mock<IConfiguration>();
+            _userRepoMock = new Mock<IUserRepository>();
             _roleRepoMock = new Mock<IRoleRepository>();
             _refreshTokenRepoMock = new Mock<IRefreshTokenRepository>();
+            _tokenServiceMock = new Mock<ITokenService>();
+            _tokenServiceMock.Setup(x => x.GenerateAccessToken(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>())).Returns("token");
 
             _authService = new AuthService(
-                _dbFactoryMock.Object,
-                _configMock.Object,
+                _userRepoMock.Object,
                 _roleRepoMock.Object,
-                _refreshTokenRepoMock.Object
+                _refreshTokenRepoMock.Object,
+                _tokenServiceMock.Object
             );
         }
 
