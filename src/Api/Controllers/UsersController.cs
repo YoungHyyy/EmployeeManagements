@@ -39,6 +39,17 @@ namespace EmployeeManagement.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
+            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+            if (!string.Equals(currentUserRole, "ADMIN", StringComparison.OrdinalIgnoreCase))
+            {
+                return Forbid();
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.RoleCode) && string.Equals(req.RoleCode, "ADMIN", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Chỉ Admin được phép tạo tài khoản Admin" });
+            }
+
             var existing = await _userRepository.GetByEmailAsync(req.Email);
             if (existing != null)
             {

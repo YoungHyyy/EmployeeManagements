@@ -21,7 +21,7 @@ namespace EmployeeManagement.Api.Controllers
             _userRepository = userRepository;
         }
 
-        [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {

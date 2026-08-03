@@ -1,6 +1,10 @@
 using EmployeeManagement.Api.Authentication;
+using EmployeeManagement.Api.Configuration;
 using EmployeeManagement.Api.Extensions;
+using EmployeeManagement.Api.Filters;
 using EmployeeManagement.Api.Middleware;
+using EmployeeManagement.Api.Services;
+using EmployeeManagement.Api.Swagger;
 using EmployeeManagement.Application.Validators;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Infrastructure.Data;
@@ -20,7 +24,10 @@ builder.Host.UseSerilog((context, services, loggerConfiguration) =>
         .WriteTo.Console()
         .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day));
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ApiResponseFilter>();
+});
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -42,23 +49,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options => AuthorizationPolicies.AddPolicies(options));
 
-var defaultConn = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Server=localhost;Database=EmployeeManagementDb;User Id=emsuser;Password=YourPassword123;";
-builder.Services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(defaultConn ?? string.Empty));
-builder.Services.AddScoped<EmployeeManagement.Application.Interfaces.IAuthService, EmployeeManagement.Application.Services.AuthService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserService, EmployeeManagement.Application.Services.UserService>();
-builder.Services.AddScoped<IDepartmentRepository, DepartmentRepository>();
-builder.Services.AddScoped<IPositionRepository, PositionRepository>();
-builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddValidationServices();
 
+builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "EmployeeManagement.Api", Version = "v1" });
+    c.SwaggerDoc("v1", SwaggerConfig.GetInfo());
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -83,19 +81,28 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+StartupConfigurationValidator.Validate(builder.Configuration);
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Employee Management API v1");
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
+        c.DefaultModelsExpandDepth(-1);
+    });
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();

@@ -25,14 +25,18 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception for {Path}", context.Request.Path);
+            _logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
             var response = new ApiResponse<object>
             {
                 Success = false,
-                Message = "Đã xảy ra lỗi hệ thống",
+                Message = ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                    ? "Không tìm thấy dữ liệu"
+                    : ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+                        ? "Dữ liệu đã tồn tại"
+                        : "Đã xảy ra lỗi hệ thống",
                 Data = null
             };
 

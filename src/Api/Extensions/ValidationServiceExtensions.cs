@@ -11,6 +11,10 @@ public static class ValidationServiceExtensions
         services.AddFluentValidationAutoValidation();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         services.AddValidatorsFromAssemblyContaining<EmployeeDtoValidator>();
+        services.AddValidatorsFromAssemblyContaining<DepartmentDtoValidator>();
+        services.AddValidatorsFromAssemblyContaining<PositionDtoValidator>();
+        services.AddValidatorsFromAssemblyContaining<ProfileUpdateRequestValidator>();
+        services.AddValidatorsFromAssemblyContaining<CreateUserRequestValidator>();
         return services;
     }
 }

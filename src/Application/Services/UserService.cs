@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,6 +21,11 @@ namespace EmployeeManagement.Application.Services
 
         public async Task<UserResponse> CreateAsync(CreateUserRequest request)
         {
+            if (!string.IsNullOrWhiteSpace(request.RoleCode) && string.Equals(request.RoleCode, "ADMIN", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Chỉ Admin được phép tạo tài khoản Admin");
+            }
+
             var user = new User
             {
                 FullName = request.FullName,

@@ -1,0 +1,236 @@
+{
+  "info": {
+    "name": "EmployeeManagement API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0",
+    "description": "Postman collection cho EmployeeManagement API (generated). Sử dụng biến môi trường `baseUrl` và `accessToken`."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5269"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Auto-login pre-request: if accessToken missing, call /api/Auth/login using adminEmail/adminPassword env vars",
+          "if (!pm.environment.get('accessToken')) {",
+          "  pm.sendRequest({",
+          "    url: pm.environment.get('baseUrl') + '/api/Auth/login',",
+          "    method: 'POST',",
+          "    header: { 'Content-Type': 'application/json' },",
+          "    body: { mode: 'raw', raw: JSON.stringify({ email: pm.environment.get('adminEmail'), password: pm.environment.get('adminPassword') }) }",
+          "  }, function (err, res) {",
+          "    if (!err && res && res.code === 200) {",
+          "      var body = res.json();",
+          "      var token = (body.data && body.data.accessToken) || body.accessToken || (body.data && body.data.token);",
+          "      if (token) pm.environment.set('accessToken', token);",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin.test@example.com\",\n  \"password\": \"Admin123@\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Auth",
+                "login"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save access token to environment variable",
+                  "if (pm.response.code === 200) {",
+                  "  var body = pm.response.json();",
+                  "  var token = (body.data && body.data.accessToken) || body.accessToken || (body.data && body.data.token);",
+                  "  if (token) {",
+                  "    pm.environment.set('accessToken', token);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Test User\",\n  \"email\": \"test.user@example.com\",\n  \"phoneNumber\": \"0123456789\",\n  \"password\": \"User123@\",\n  \"confirmPassword\": \"User123@\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "Get List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Employees?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Employees"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response success true', function () { var b = pm.response.json(); pm.expect(b.success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"email\": \"nv.a@example.com\",\n  \"phoneNumber\": \"0912345678\",\n  \"departmentId\": 1,\n  \"positionId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","Employees"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 or 200', function () { pm.expect([200,201]).to.include(pm.response.code); });",
+                  "pm.test('Response success true', function () { var b = pm.response.json(); pm.expect(b.success).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/Profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","Profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/Profile/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","Profile","avatar"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

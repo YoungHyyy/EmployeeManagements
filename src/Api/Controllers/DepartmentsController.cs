@@ -9,7 +9,6 @@ namespace EmployeeManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class DepartmentsController : ControllerBase
 {
     private readonly IDepartmentRepository _repository;
@@ -21,6 +20,7 @@ public class DepartmentsController : ControllerBase
         _employeeRepository = employeeRepository;
     }
 
+    [Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
@@ -28,6 +28,7 @@ public class DepartmentsController : ControllerBase
         return Ok(items.Select(x => Map(x)));
     }
 
+    [Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -35,6 +36,7 @@ public class DepartmentsController : ControllerBase
         return item == null ? NotFound() : Ok(Map(item));
     }
 
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] DepartmentDto request)
     {
@@ -51,6 +53,7 @@ public class DepartmentsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id }, Map(entity));
     }
 
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] DepartmentDto request)
     {
@@ -65,6 +68,7 @@ public class DepartmentsController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {

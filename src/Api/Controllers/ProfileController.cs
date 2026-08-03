@@ -1,4 +1,5 @@
 using EmployeeManagement.Api.Authentication;
+using EmployeeManagement.Api.Services;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,12 @@ namespace EmployeeManagement.Api.Controllers;
 public class ProfileController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
+    private readonly IAvatarUploadService _avatarUploadService;
 
-    public ProfileController(IUserRepository userRepository)
+    public ProfileController(IUserRepository userRepository, IAvatarUploadService avatarUploadService)
     {
         _userRepository = userRepository;
+        _avatarUploadService = avatarUploadService;
     }
 
     [HttpGet]
@@ -54,5 +57,31 @@ public class ProfileController : ControllerBase
         user.PhoneNumber = request.PhoneNumber;
         await _userRepository.UpdateAsync(user);
         return NoContent();
+    }
+
+    [HttpPost("avatar")]
+    public async Task<IActionResult> UploadAvatar(IFormFile file)
+    {
+        var email = User.Identity?.Name ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return Unauthorized();
+        }
+
+        var user = await _userRepository.GetByEmailAsync(email);
+        if (user == null) return NotFound();
+
+        try
+        {
+            var avatarPath = await _avatarUploadService.SaveAsync(file, Environment.CurrentDirectory);
+            user.AvatarUrl = avatarPath;
+            await _userRepository.UpdateAsync(user);
+
+            return Ok(new { success = true, message = "Tải ảnh đại diện thành công", data = new { avatarUrl = avatarPath } });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message, data = (object?)null });
+        }
     }
 }
