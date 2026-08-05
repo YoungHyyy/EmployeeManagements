@@ -1,8 +1,9 @@
 using EmployeeManagement.Api.Authentication;
-using EmployeeManagement.Api.Services;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers;
@@ -60,7 +61,7 @@ public class ProfileController : ControllerBase
     }
 
     [HttpPost("avatar")]
-    public async Task<IActionResult> UploadAvatar(IFormFile file)
+    public async Task<IActionResult> UploadAvatar(IFormFile file, [FromServices] IWebHostEnvironment env)
     {
         var email = User.Identity?.Name ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         if (string.IsNullOrWhiteSpace(email))
@@ -73,7 +74,7 @@ public class ProfileController : ControllerBase
 
         try
         {
-            var avatarPath = await _avatarUploadService.SaveAsync(file, Environment.CurrentDirectory);
+            var avatarPath = await _avatarUploadService.SaveAsync(file.OpenReadStream(), file.FileName, file.ContentType, file.Length, env.WebRootPath);
             user.AvatarUrl = avatarPath;
             await _userRepository.UpdateAsync(user);
 

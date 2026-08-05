@@ -3,7 +3,6 @@ using EmployeeManagement.Api.Configuration;
 using EmployeeManagement.Api.Extensions;
 using EmployeeManagement.Api.Filters;
 using EmployeeManagement.Api.Middleware;
-using EmployeeManagement.Api.Services;
 using EmployeeManagement.Api.Swagger;
 using EmployeeManagement.Application.Validators;
 using EmployeeManagement.Application.Interfaces;
