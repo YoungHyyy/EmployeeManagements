@@ -91,4 +91,17 @@ public class EmployeeRepository : IEmployeeRepository
         var sql = $"SELECT * FROM Employees {where} ORDER BY CreatedAt DESC LIMIT @limit OFFSET @offset";
         return await conn.QueryAsync<Employee>(sql, new { search = $"%{search}%", departmentId, positionId, status, limit = pageSize, offset });
     }
+
+    public async Task<bool> ExistsByEmailAsync(string email, int? excludeEmployeeId = null)
+    {
+        using var conn = _dbFactory.CreateConnection();
+        var sql = @"SELECT COUNT(1) FROM Employees WHERE LOWER(Email) = LOWER(@email) AND IsDeleted = 0";
+        if (excludeEmployeeId.HasValue)
+        {
+            sql += " AND Id <> @excludeEmployeeId";
+        }
+
+        var count = await conn.ExecuteScalarAsync<int>(sql, new { email, excludeEmployeeId });
+        return count > 0;
+    }
 }

@@ -84,17 +84,28 @@ Kho lưu trữ này chứa phần backend được xây dựng theo kiến ​�
  ```
 
  ## Chạy bằng Docker (khuyến nghị để deploy)
- _Lưu ý: repository hiện chưa có `Dockerfile` và `docker-compose.yml`. Có thể tạo nhanh theo mẫu bên dưới hoặc yêu cầu tôi tạo giúp._
+Repository đã có `Dockerfile` và `docker-compose.yml` ở root để chạy API cùng MySQL.
 
- Một `docker-compose.yml` tối thiểu gồm:
- - mysql service (volume dữ liệu)
- - api service (build từ repo)
-
- Chạy:
+ Chạy toàn bộ stack:
 
  ```bash
  docker compose up --build
  ```
+
+ Sau khi khởi động:
+ - API: http://localhost:8080/swagger
+ - MySQL: localhost:3306
+
+ Dừng stack:
+
+ ```bash
+ docker compose down
+ ```
+
+ Nếu muốn xoá dữ liệu MySQL volume:
+
+ ```bash
+ docker compose down -v
 
  ## Xác thực & test bằng Swagger
  1. Tạo user (hoặc dùng admin đã seed): POST `/api/Auth/register` (nếu endpoint cho phép tạo public user)

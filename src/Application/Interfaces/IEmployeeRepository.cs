@@ -10,4 +10,5 @@ public interface IEmployeeRepository
     Task RestoreAsync(int id);
     Task<Employee?> GetByIdAsync(int id);
     Task<IEnumerable<Employee>> ListAsync(int page, int pageSize, string? search = null, int? departmentId = null, int? positionId = null, string? status = null);
+    Task<bool> ExistsByEmailAsync(string email, int? excludeEmployeeId = null);
 }

@@ -1,19 +1,26 @@
 using EmployeeManagement.Application.DTOs;
+using EmployeeManagement.Application.Interfaces;
 using FluentValidation;
 
 namespace EmployeeManagement.Application.Validators;
 
 public class EmployeeDtoValidator : AbstractValidator<EmployeeDto>
 {
-    public EmployeeDtoValidator()
+    private readonly IEmployeeRepository _employeeRepository;
+
+    public EmployeeDtoValidator(IEmployeeRepository employeeRepository)
     {
+        _employeeRepository = employeeRepository;
+
         RuleFor(x => x.FullName)
             .NotEmpty().WithMessage("Họ tên là bắt buộc")
             .MaximumLength(200);
 
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email là bắt buộc")
-            .EmailAddress().WithMessage("Email không đúng định dạng");
+            .EmailAddress().WithMessage("Email không đúng định dạng")
+            .MustAsync(async (email, cancellation) => !await _employeeRepository.ExistsByEmailAsync(email))
+            .WithMessage("Email đã tồn tại trong hệ thống");
 
         RuleFor(x => x.PhoneNumber)
             .Matches(@"^(0)(3[2-9]|5[6|8|9]|7[0|6-9]|8[1-9]|9[0-9])[0-9]{7}$")

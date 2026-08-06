@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: employee-management-db
+    environment:
+      MYSQL_DATABASE: EmployeeManagementDb
+      MYSQL_USER: emsuser
+      MYSQL_PASSWORD: YourPassword123
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/1_schema.sql:ro
+      - ./database/seed-admin-user.sql:/docker-entrypoint-initdb.d/2_seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: employee-management-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=db;Database=EmployeeManagementDb;User Id=emsuser;Password=YourPassword123;
+      Jwt__Key: YourSuperSecretKeyReplaceMeWithAtLeast256BitsLength123!
+      Jwt__Issuer: EmployeeManagement
+      Jwt__Audience: EmployeeManagement
+      Jwt__ExpiresInMinutes: 60
+      Jwt__RefreshTokenDays: 7
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql_data:

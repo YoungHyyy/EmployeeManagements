@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EmployeeManagement.Application.Services
 {
@@ -14,17 +16,20 @@ namespace EmployeeManagement.Application.Services
         private readonly IRoleRepository _roleRepository;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly ITokenService _tokenService;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             IUserRepository userRepository,
             IRoleRepository roleRepository,
             IRefreshTokenRepository refreshTokenRepository,
-            ITokenService tokenService)
+            ITokenService tokenService,
+            ILogger<AuthService>? logger = null)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
             _refreshTokenRepository = refreshTokenRepository;
             _tokenService = tokenService;
+            _logger = logger ?? NullLogger<AuthService>.Instance;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -82,10 +87,16 @@ namespace EmployeeManagement.Application.Services
         {
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
+            {
+                _logger.LogWarning("Login failed for email {Email}: user not found", request.Email);
                 return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
+            }
 
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                _logger.LogWarning("Login failed for email {Email}: invalid password", request.Email);
                 return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
+            }
 
             var roleCode = await GetUserRoleCodeAsync(user.Id);
             var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roleCode);
@@ -102,6 +113,7 @@ namespace EmployeeManagement.Application.Services
                 CreatedAt = DateTime.UtcNow
             });
 
+            _logger.LogInformation("Login succeeded for email {Email} with role {Role}", user.Email, roleCode);
             return new AuthResponse { Success = true, Message = "Đăng nhập thành công", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
         }
 
