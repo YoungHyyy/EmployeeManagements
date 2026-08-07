@@ -9,6 +9,7 @@ COPY ["src/Api/EmployeeManagement.Api.csproj", "src/Api/"]
 COPY ["src/Application/EmployeeManagement.Application.csproj", "src/Application/"]
 COPY ["src/Domain/EmployeeManagement.Domain.csproj", "src/Domain/"]
 COPY ["src/Infrastructure/EmployeeManagement.Infrastructure.csproj", "src/Infrastructure/"]
+COPY ["tests/EmployeeManagement.Tests/EmployeeManagement.Tests.csproj", "tests/EmployeeManagement.Tests/"]
 COPY ["EmployeeManagement.sln", "./"]
 RUN dotnet restore "EmployeeManagement.sln"
 COPY . .

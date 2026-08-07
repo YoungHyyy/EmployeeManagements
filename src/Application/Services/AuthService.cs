@@ -211,7 +211,7 @@ namespace EmployeeManagement.Application.Services
             if (string.IsNullOrWhiteSpace(storedOtp) || !string.Equals(storedOtp, request.OtpCode, StringComparison.Ordinal))
                 return new AuthResponse { Success = false, Message = "Invalid OTP code" };
 
-            if (!otpExpiration.HasValue || otpExpiration.Value < DateTime.Now)
+            if (!otpExpiration.HasValue || otpExpiration.Value < DateTime.UtcNow)
                 return new AuthResponse { Success = false, Message = "OTP has expired" };
 
             var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);

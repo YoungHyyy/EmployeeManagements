@@ -41,7 +41,17 @@ namespace EmployeeManagement.Infrastructure.Repositories
 
         public async Task UpdateAsync(User user)
         {
-            var sql = "UPDATE Users SET FullName = @FullName, PhoneNumber = @PhoneNumber, AvatarUrl = @AvatarUrl, IsActive = @IsActive, UpdatedAt = NOW() WHERE Id = @Id";
+            var sql = @"
+                UPDATE Users
+                SET FullName = @FullName,
+                    PhoneNumber = @PhoneNumber,
+                    AvatarUrl = @AvatarUrl,
+                    PasswordHash = @PasswordHash,
+                    OtpCode = @OtpCode,
+                    OtpExpiration = @OtpExpiration,
+                    IsActive = @IsActive,
+                    UpdatedAt = NOW()
+                WHERE Id = @Id";
             await ExecuteAsync(sql, user);
         }
     }

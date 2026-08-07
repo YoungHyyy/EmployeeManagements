@@ -102,23 +102,59 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
 
 ### 4.3 `DepartmentsController.cs`
 * **Đường dẫn gốc:** `/api/departments`
-* **Nhiệm vụ:** Quản lý danh mục Phòng ban (`CRUD`). Yêu cầu quyền `AdminOnly`.
+* **Nhiệm vụ:** Quản lý danh mục Phòng ban.
+* **Quyền truy cập:** `EmployeeOrAdmin` cho `GET`, `AdminOnly` cho `POST`, `PUT`, `DELETE`.
+* **Danh sách Endpoints:**
+  - `GET /api/departments`: Lấy danh sách phòng ban (phân trang).
+  - `GET /api/departments/{id}`: Lấy chi tiết phòng ban theo ID.
+  - `POST /api/departments`: Tạo phòng ban mới.
+  - `PUT /api/departments/{id}`: Cập nhật phòng ban.
+  - `DELETE /api/departments/{id}`: Xóa mềm phòng ban nếu không có nhân viên liên kết.
 
 ### 4.4 `PositionsController.cs`
 * **Đường dẫn gốc:** `/api/positions`
-* **Nhiệm vụ:** Quản lý danh mục Chức vụ (`CRUD`). Yêu cầu quyền `AdminOnly`.
+* **Nhiệm vụ:** Quản lý danh mục Chức vụ.
+* **Quyền truy cập:** `AdminOnly` cho tất cả các phương thức.
+* **Danh sách Endpoints:**
+  - `GET /api/positions`: Lấy danh sách chức vụ (phân trang).
+  - `GET /api/positions/{id}`: Lấy chi tiết chức vụ theo ID.
+  - `POST /api/positions`: Tạo chức vụ mới.
+  - `PUT /api/positions/{id}`: Cập nhật chức vụ.
+  - `DELETE /api/positions/{id}`: Xóa mềm chức vụ nếu không có nhân viên liên kết.
 
 ### 4.5 `ProfileController.cs`
 * **Đường dẫn gốc:** `/api/profile`
-* **Nhiệm vụ:** Cho phép nhân viên xem (`GET`) và cập nhật thông tin cá nhân (`PUT`) của chính mình.
+* **Nhiệm vụ:** Quản lý hồ sơ người dùng hiện tại.
+* **Quyền truy cập:** `EmployeeOrAdmin`.
+* **Danh sách Endpoints:**
+  - `GET /api/profile`: Lấy thông tin profile của người dùng đang đăng nhập.
+  - `PUT /api/profile`: Cập nhật thông tin cá nhân của người dùng đang đăng nhập.
+  - `POST /api/profile/avatar`: Tải ảnh đại diện lên cho người dùng đang đăng nhập.
 
 ### 4.6 `DashboardController.cs`
 * **Đường dẫn gốc:** `/api/dashboard`
-* **Nhiệm vụ:** Cung cấp API báo cáo thống kê số liệu tổng quan cho Admin (Tổng nhân viên, đang làm, nghỉ việc, nhân viên mới trong tháng, nhân viên theo phòng ban/chức vụ).
+* **Nhiệm vụ:** Trả về thống kê tổng quan của hệ thống.
+* **Quyền truy cập:** `AdminOnly`.
+* **Danh sách Endpoints:**
+  - `GET /api/dashboard`: Lấy dữ liệu thống kê dashboard.
 
 ### 4.7 `UsersController.cs`
 * **Đường dẫn gốc:** `/api/users`
-* **Nhiệm vụ:** Quản lý danh sách tài khoản User hệ thống dành cho Admin (`CRUD`).
+* **Nhiệm vụ:** Quản lý tài khoản hệ thống.
+* **Quyền truy cập:** `AdminOnly`.
+* **Danh sách Endpoints:**
+  - `GET /api/users`: Lấy danh sách người dùng hệ thống (phân trang).
+  - `GET /api/users/{id}`: Lấy thông tin người dùng theo ID.
+  - `POST /api/users`: Tạo tài khoản người dùng mới (Admin không được tạo tài khoản Admin khác bằng `RoleCode=ADMIN`).
+  - `PUT /api/users/{id}`: Cập nhật thông tin người dùng.
+  - `DELETE /api/users/{id}`: Xóa tài khoản người dùng (không cho xóa chính mình).
+
+### 4.8 `WeatherForecastController.cs`
+* **Đường dẫn gốc:** `/WeatherForecast`
+* **Nhiệm vụ:** Endpoint mẫu mặc định từ dự án ASP.NET Core template.
+* **Quyền truy cập:** Mở.
+* **Danh sách Endpoints:**
+  - `GET /WeatherForecast`: Lấy dữ liệu mẫu dự báo thời tiết.
 
 ---
 
