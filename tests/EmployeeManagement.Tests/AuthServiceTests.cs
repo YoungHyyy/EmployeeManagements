@@ -99,7 +99,7 @@ public class AuthServiceTests
         });
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("incorrect");
+        result.Message.Should().Contain("không đúng");
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class AuthServiceTests
         });
 
         result.Success.Should().BeTrue();
-        result.Message.Should().Contain("successfully");
+        result.Message.Should().Contain("thành công");
     }
 
     private static AuthService CreateService(IUserRepository? userRepository = null)

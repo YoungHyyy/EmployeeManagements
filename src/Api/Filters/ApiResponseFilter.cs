@@ -59,7 +59,21 @@ public class ApiResponseFilter : IAsyncResultFilter
             ValidationProblemDetails validationProblem => string.Join(" | ", validationProblem.Errors.SelectMany(x => x.Value).Distinct()),
             ProblemDetails problem => string.IsNullOrWhiteSpace(problem.Detail) ? problem.Title ?? "Yêu cầu không hợp lệ" : problem.Detail,
             string message when !string.IsNullOrWhiteSpace(message) => message,
-            _ => "Yêu cầu không hợp lệ"
+            _ => TryGetMessageProperty(value) ?? "Yêu cầu không hợp lệ"
         };
+    }
+
+    private static string? TryGetMessageProperty(object? value)
+    {
+        if (value is null) return null;
+
+        var prop = value.GetType().GetProperty("message")
+                   ?? value.GetType().GetProperty("Message");
+        if (prop?.GetValue(value) is string message && !string.IsNullOrWhiteSpace(message))
+        {
+            return message;
+        }
+
+        return null;
     }
 }

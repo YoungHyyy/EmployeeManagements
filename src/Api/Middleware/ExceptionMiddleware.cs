@@ -27,20 +27,38 @@ public class ExceptionMiddleware
         {
             _logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+            var (statusCode, message) = MapException(ex);
+            context.Response.StatusCode = (int)statusCode;
 
             var response = new ApiResponse<object>
             {
                 Success = false,
-                Message = ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                    ? "Không tìm thấy dữ liệu"
-                    : ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
-                        ? "Dữ liệu đã tồn tại"
-                        : "Đã xảy ra lỗi hệ thống",
+                Message = message,
                 Data = null
             };
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
+    }
+
+    private static (HttpStatusCode StatusCode, string Message) MapException(Exception ex)
+    {
+        return ex switch
+        {
+            ArgumentException or InvalidOperationException
+                => (HttpStatusCode.BadRequest, string.IsNullOrWhiteSpace(ex.Message) ? "Yêu cầu không hợp lệ" : ex.Message),
+            KeyNotFoundException or FileNotFoundException
+                => (HttpStatusCode.NotFound, string.IsNullOrWhiteSpace(ex.Message) ? "Không tìm thấy dữ liệu" : ex.Message),
+            UnauthorizedAccessException
+                => (HttpStatusCode.Unauthorized, "Không có quyền truy cập"),
+            _ when ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                => (HttpStatusCode.NotFound, "Không tìm thấy dữ liệu"),
+            _ when ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+                => (HttpStatusCode.BadRequest, "Dữ liệu đã tồn tại"),
+            _ when ex.Message.Contains("không tìm thấy", StringComparison.OrdinalIgnoreCase)
+                => (HttpStatusCode.NotFound, ex.Message),
+            _ => (HttpStatusCode.InternalServerError, "Đã xảy ra lỗi hệ thống")
+        };
     }
 }

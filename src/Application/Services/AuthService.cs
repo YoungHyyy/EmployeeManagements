@@ -52,18 +52,12 @@ namespace EmployeeManagement.Application.Services
             };
             var userId = await _userRepository.CreateAsync(user);
 
-            var roleCode = string.IsNullOrWhiteSpace(request.RoleCode) ? "EMPLOYEE" : request.RoleCode.ToUpperInvariant();
+            // Public register always assigns EMPLOYEE. Role must not come from client input.
+            const string roleCode = "EMPLOYEE";
             var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
             if (roleId.HasValue)
             {
                 await _roleRepository.AssignRoleAsync(userId, roleId.Value);
-            }
-            else
-            {
-                var defaultRoleId = await _roleRepository.GetRoleIdByCodeAsync("EMPLOYEE");
-                if (defaultRoleId.HasValue)
-                    await _roleRepository.AssignRoleAsync(userId, defaultRoleId.Value);
-                roleCode = "EMPLOYEE";
             }
 
             var accessToken = _tokenService.GenerateAccessToken(userId, request.Email, roleCode);
@@ -132,7 +126,7 @@ namespace EmployeeManagement.Application.Services
 
             var user = await _userRepository.GetByIdAsync(storedToken.UserId);
             if (user == null)
-                return new AuthResponse { Success = false, Message = "User not found" };
+                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng" };
 
             var newRawRefreshToken = Guid.NewGuid().ToString("N");
             var newTokenHash = HashToken(newRawRefreshToken);
@@ -151,7 +145,7 @@ namespace EmployeeManagement.Application.Services
             var roleCode = await GetUserRoleCodeAsync(user.Id);
             var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roleCode);
 
-            return new AuthResponse { Success = true, Message = "Refreshed", AccessToken = accessToken, RefreshToken = newRawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
+            return new AuthResponse { Success = true, Message = "Làm mới token thành công", AccessToken = accessToken, RefreshToken = newRawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
         }
 
         public async Task<AuthResponse> LogoutAsync(string refreshToken)
@@ -161,58 +155,58 @@ namespace EmployeeManagement.Application.Services
                 var tokenHash = HashToken(refreshToken);
                 await _refreshTokenRepository.RevokeAsync(tokenHash);
             }
-            return new AuthResponse { Success = true, Message = "Logged out" };
+            return new AuthResponse { Success = true, Message = "Đăng xuất thành công" };
         }
 
         public async Task<AuthResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request)
         {
             if (request.NewPassword != request.ConfirmPassword)
-                return new AuthResponse { Success = false, Message = "New password and confirm password do not match" };
+                return new AuthResponse { Success = false, Message = "Mật khẩu mới và xác nhận mật khẩu không khớp" };
 
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
-                return new AuthResponse { Success = false, Message = "User not found" };
+                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng" };
 
             if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
-                return new AuthResponse { Success = false, Message = "Current password is incorrect" };
+                return new AuthResponse { Success = false, Message = "Mật khẩu hiện tại không đúng" };
 
             var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.PasswordHash = newHash;
             await _userRepository.UpdateAsync(user);
 
-            return new AuthResponse { Success = true, Message = "Password changed successfully" };
+            return new AuthResponse { Success = true, Message = "Đổi mật khẩu thành công" };
         }
 
         public async Task<AuthResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
         {
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
-                return new AuthResponse { Success = false, Message = "User not found" };
+                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng với email này" };
 
             var otp = new Random().Next(100000, 999999).ToString();
             user.OtpCode = otp;
             user.OtpExpiration = DateTime.UtcNow.AddMinutes(10);
             await _userRepository.UpdateAsync(user);
-            return new AuthResponse { Success = true, Message = $"OTP generated: {otp}" };
+            return new AuthResponse { Success = true, Message = $"Mã OTP đã được tạo (giả lập): {otp}" };
         }
 
         public async Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request)
         {
             if (request.NewPassword != request.ConfirmPassword)
-                return new AuthResponse { Success = false, Message = "New password and confirm password do not match" };
+                return new AuthResponse { Success = false, Message = "Mật khẩu mới và xác nhận mật khẩu không khớp" };
 
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
-                return new AuthResponse { Success = false, Message = "User not found" };
+                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng với email này" };
 
             var storedOtp = user.OtpCode;
             var otpExpiration = user.OtpExpiration;
 
             if (string.IsNullOrWhiteSpace(storedOtp) || !string.Equals(storedOtp, request.OtpCode, StringComparison.Ordinal))
-                return new AuthResponse { Success = false, Message = "Invalid OTP code" };
+                return new AuthResponse { Success = false, Message = "Mã OTP không hợp lệ" };
 
             if (!otpExpiration.HasValue || otpExpiration.Value < DateTime.UtcNow)
-                return new AuthResponse { Success = false, Message = "OTP has expired" };
+                return new AuthResponse { Success = false, Message = "Mã OTP đã hết hạn" };
 
             var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.PasswordHash = newHash;
@@ -220,7 +214,7 @@ namespace EmployeeManagement.Application.Services
             user.OtpExpiration = null;
             await _userRepository.UpdateAsync(user);
 
-            return new AuthResponse { Success = true, Message = "Password reset successfully" };
+            return new AuthResponse { Success = true, Message = "Đặt lại mật khẩu thành công" };
         }
 
         private async Task<string> GetUserRoleCodeAsync(int userId)

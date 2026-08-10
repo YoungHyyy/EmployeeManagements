@@ -33,23 +33,15 @@ namespace EmployeeManagement.Api.Controllers
         public async Task<IActionResult> Get(int id)
         {
             var u = await _userService.GetByIdAsync(id);
-            return u == null ? NotFound() : Ok(u);
+            return u == null
+                ? NotFound(new { success = false, message = "Không tìm thấy người dùng" })
+                : Ok(u);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
-            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
-            if (!string.Equals(currentUserRole, "ADMIN", StringComparison.OrdinalIgnoreCase))
-            {
-                return Forbid();
-            }
-
-            if (!string.IsNullOrWhiteSpace(req.RoleCode) && string.Equals(req.RoleCode, "ADMIN", StringComparison.OrdinalIgnoreCase))
-            {
-                return BadRequest(new { message = "Chỉ Admin được phép tạo tài khoản Admin" });
-            }
-
+            // Endpoint is AdminOnly: only an existing Admin may create users (including ADMIN).
             var existing = await _userRepository.GetByEmailAsync(req.Email);
             if (existing != null)
             {
@@ -88,7 +80,7 @@ namespace EmployeeManagement.Api.Controllers
                     var currentUser = await _userRepository.GetByEmailAsync(email);
                     if (currentUser != null && currentUser.Id == id)
                     {
-                        return BadRequest(new { message = "Cannot delete your own account" });
+                        return BadRequest(new { message = "Không thể xóa tài khoản của chính mình" });
                     }
                 }
             }

@@ -30,7 +30,9 @@ public class DepartmentsController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var item = await _service.GetByIdAsync(id);
-        return item == null ? NotFound() : Ok(item);
+        return item == null
+            ? NotFound(new { success = false, message = "Không tìm thấy phòng ban" })
+            : Ok(item);
     }
 
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]

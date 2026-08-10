@@ -21,9 +21,15 @@ namespace EmployeeManagement.Application.Services
 
         public async Task<UserResponse> CreateAsync(CreateUserRequest request)
         {
-            if (!string.IsNullOrWhiteSpace(request.RoleCode) && string.Equals(request.RoleCode, "ADMIN", StringComparison.OrdinalIgnoreCase))
+            // Role assignment is only reachable via Admin-only API (/api/users).
+            // Public register never uses this path and always forces EMPLOYEE.
+            var roleCode = string.IsNullOrWhiteSpace(request.RoleCode)
+                ? "EMPLOYEE"
+                : request.RoleCode.Trim().ToUpperInvariant();
+
+            if (roleCode is not ("ADMIN" or "EMPLOYEE"))
             {
-                throw new InvalidOperationException("Chỉ Admin được phép tạo tài khoản Admin");
+                throw new InvalidOperationException("Role không hợp lệ. Chỉ chấp nhận ADMIN hoặc EMPLOYEE");
             }
 
             var user = new User
@@ -36,17 +42,13 @@ namespace EmployeeManagement.Application.Services
             };
             var id = await _userRepo.CreateAsync(user);
 
-            var roleCode = string.IsNullOrWhiteSpace(request.RoleCode) ? "EMPLOYEE" : request.RoleCode.ToUpperInvariant();
             var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
             if (!roleId.HasValue)
             {
-                roleId = await _roleRepository.GetRoleIdByCodeAsync("EMPLOYEE");
+                throw new InvalidOperationException($"Không tìm thấy role {roleCode} trong hệ thống");
             }
 
-            if (roleId.HasValue)
-            {
-                await _roleRepository.AssignRoleAsync(id, roleId.Value);
-            }
+            await _roleRepository.AssignRoleAsync(id, roleId.Value);
 
             var created = await _userRepo.GetByIdAsync(id);
             return Map(created!);

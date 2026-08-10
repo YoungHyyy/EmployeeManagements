@@ -88,7 +88,7 @@ Updated: 2026-07-28 00:00
    - Filter theo phòng ban/chức vụ/trạng thái
    - Sort và pagination
 
-5. Hoàn thiện hồ sơ cá nhân và upload
+5. Hoàn thiện hồ sơ cá nhân và upload 
    - Profile view/update
    - Upload avatar jpg/png tối đa 2MB
 

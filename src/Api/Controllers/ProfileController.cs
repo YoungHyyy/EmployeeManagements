@@ -28,18 +28,21 @@ public class ProfileController : ControllerBase
         var email = User.Identity?.Name ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         if (string.IsNullOrWhiteSpace(email))
         {
-            return Unauthorized();
+            return Unauthorized(new { success = false, message = "Không có quyền truy cập" });
         }
 
         var user = await _userRepository.GetByEmailAsync(email);
-        return user == null ? NotFound() : Ok(new
-        {
-            user.Id,
-            user.FullName,
-            user.Email,
-            user.PhoneNumber,
-            user.CreatedAt
-        });
+        return user == null
+            ? NotFound(new { success = false, message = "Không tìm thấy hồ sơ người dùng" })
+            : Ok(new
+            {
+                user.Id,
+                user.FullName,
+                user.Email,
+                user.PhoneNumber,
+                user.AvatarUrl,
+                user.CreatedAt
+            });
     }
 
     [HttpPut]
@@ -48,11 +51,12 @@ public class ProfileController : ControllerBase
         var email = User.Identity?.Name ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         if (string.IsNullOrWhiteSpace(email))
         {
-            return Unauthorized();
+            return Unauthorized(new { success = false, message = "Không có quyền truy cập" });
         }
 
         var user = await _userRepository.GetByEmailAsync(email);
-        if (user == null) return NotFound();
+        if (user == null)
+            return NotFound(new { success = false, message = "Không tìm thấy hồ sơ người dùng" });
 
         user.FullName = request.FullName;
         user.PhoneNumber = request.PhoneNumber;
@@ -66,11 +70,12 @@ public class ProfileController : ControllerBase
         var email = User.Identity?.Name ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         if (string.IsNullOrWhiteSpace(email))
         {
-            return Unauthorized();
+            return Unauthorized(new { success = false, message = "Không có quyền truy cập" });
         }
 
         var user = await _userRepository.GetByEmailAsync(email);
-        if (user == null) return NotFound();
+        if (user == null)
+            return NotFound(new { success = false, message = "Không tìm thấy hồ sơ người dùng" });
 
         try
         {

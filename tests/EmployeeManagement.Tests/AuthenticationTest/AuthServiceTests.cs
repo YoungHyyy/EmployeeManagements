@@ -126,7 +126,7 @@ namespace EmployeeManagement.Tests.Authentication
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeTrue();
-            result.Message.Should().Be("Logged out");
+            result.Message.Should().Be("Đăng xuất thành công");
             _refreshTokenRepoMock.Verify(r => r.RevokeAsync(It.IsAny<string>()), Times.Once);
         }
 
@@ -147,7 +147,7 @@ namespace EmployeeManagement.Tests.Authentication
             // Assert
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
-            result.Message.Should().Be("New password and confirm password do not match");
+            result.Message.Should().Be("Mật khẩu mới và xác nhận mật khẩu không khớp");
         }
     }
 }

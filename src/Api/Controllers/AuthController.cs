@@ -66,13 +66,13 @@ namespace EmployeeManagement.Api.Controllers
                 var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
                 if (string.IsNullOrWhiteSpace(email))
                 {
-                    return Unauthorized(new { success = false, message = "Unauthorized access" });
+                    return Unauthorized(new { success = false, message = "Không có quyền truy cập" });
                 }
 
                 var user = await _userRepository.GetByEmailAsync(email);
                 if (user == null)
                 {
-                    return Unauthorized(new { success = false, message = "User not found" });
+                    return Unauthorized(new { success = false, message = "Không tìm thấy người dùng" });
                 }
 
                 userId = user.Id;

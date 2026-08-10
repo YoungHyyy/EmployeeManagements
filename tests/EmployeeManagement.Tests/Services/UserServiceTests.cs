@@ -10,23 +10,54 @@ namespace EmployeeManagement.Tests.Services;
 public class UserServiceTests
 {
     [Fact]
-    public async Task CreateAsync_ShouldThrow_WhenTryingToCreateAdminByNonAdmin()
+    public async Task CreateAsync_ShouldCreateAdmin_WhenRoleCodeIsAdmin()
     {
         var userRepo = new Mock<IUserRepository>();
+        userRepo.Setup(x => x.CreateAsync(It.IsAny<User>())).ReturnsAsync(10);
+        userRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(new User
+        {
+            Id = 10,
+            Email = "admin.new@example.com",
+            FullName = "New Admin",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
         var roleRepo = new Mock<IRoleRepository>();
+        roleRepo.Setup(x => x.GetRoleIdByCodeAsync("ADMIN")).ReturnsAsync(1);
+        roleRepo.Setup(x => x.AssignRoleAsync(10, 1)).Returns(Task.CompletedTask);
 
         var service = new UserService(userRepo.Object, roleRepo.Object);
+
+        var result = await service.CreateAsync(new CreateUserRequest
+        {
+            FullName = "New Admin",
+            Email = "admin.new@example.com",
+            Password = "Password123!",
+            RoleCode = "ADMIN"
+        });
+
+        result.Id.Should().Be(10);
+        result.Email.Should().Be("admin.new@example.com");
+        roleRepo.Verify(x => x.GetRoleIdByCodeAsync("ADMIN"), Times.Once);
+        roleRepo.Verify(x => x.AssignRoleAsync(10, 1), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenRoleCodeIsInvalid()
+    {
+        var service = new UserService(Mock.Of<IUserRepository>(), Mock.Of<IRoleRepository>());
 
         var act = async () => await service.CreateAsync(new CreateUserRequest
         {
             FullName = "Test",
             Email = "test@example.com",
             Password = "Password123!",
-            RoleCode = "ADMIN"
+            RoleCode = "SUPERADMIN"
         });
 
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("Chỉ Admin được phép tạo tài khoản Admin");
+            .WithMessage("*Role không hợp lệ*");
     }
 
     [Fact]
