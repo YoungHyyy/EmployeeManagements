@@ -1,12 +1,9 @@
 using EmployeeManagement.Api.Authentication;
-using EmployeeManagement.Api.Configuration;
 using EmployeeManagement.Api.Filters;
 using EmployeeManagement.Api.Middleware;
 using EmployeeManagement.Api.Swagger;
-using EmployeeManagement.Application.Interfaces;
-using EmployeeManagement.Application.Services;
-using EmployeeManagement.Infrastructure.Data;
-using EmployeeManagement.Infrastructure.Repositories;
+using EmployeeManagement.Application;
+using EmployeeManagement.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -90,6 +87,16 @@ public static class ServiceCollectionExtensions
         }
 
         app.UseHttpsRedirection();
+
+        // Serve uploaded avatars under /uploads/*
+        var wwwroot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+        Directory.CreateDirectory(wwwroot);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(wwwroot),
+            RequestPath = ""
+        });
+
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseSerilogRequestLogging();
         app.UseMiddleware<ExceptionMiddleware>();
@@ -101,25 +108,13 @@ public static class ServiceCollectionExtensions
         return app;
     }
 
+    /// <summary>
+    /// Wires Clean Architecture layers: Application (services) + Infrastructure (Dapper/repos).
+    /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var defaultConn = configuration.GetConnectionString("DefaultConnection") ?? "Server=localhost;Database=EmployeeManagementDb;User Id=emsuser;Password=YourPassword123;";
-
-        services.AddSingleton<IDbConnectionFactory>(new DbConnectionFactory(defaultConn));
-        services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<ITokenService, TokenService>();
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IUserService, UserService>();
-        services.AddScoped<IDepartmentRepository, DepartmentRepository>();
-        services.AddScoped<IDepartmentService, DepartmentService>();
-        services.AddScoped<IPositionRepository, PositionRepository>();
-        services.AddScoped<IPositionService, PositionService>();
-        services.AddScoped<IRoleRepository, RoleRepository>();
-        services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-        services.AddScoped<IEmployeeService, EmployeeService>();
-        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-        services.AddScoped<IDashboardRepository, DashboardRepository>();
-        services.AddScoped<IAvatarUploadService, AvatarUploadService>();
+        services.AddApplication();
+        services.AddInfrastructure(configuration);
         return services;
     }
 }

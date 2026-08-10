@@ -1,198 +1,440 @@
-# EmployeeManagement API
+# Employee Management API
 
-Kho lưu trữ này chứa phần backend được xây dựng theo kiến ​​trúc Clean Architecture trên nền tảng .NET 8 cho hệ thống Quản lý Nhân viên (sử dụng MySQL và Dapper). Tài liệu README này hướng dẫn cách chạy, kiểm thử, nạp dữ liệu mẫu (seed) và triển khai API, đồng thời tuân thủ các yêu cầu dự án được nêu trong tệp `backend.md`.
+RESTful Backend API quản lý nhân viên, xây dựng theo đề bài `backend.md`.
 
+| | |
+|---|---|
+| **Stack** | .NET 8 Web API, MySQL, Dapper (không dùng Entity Framework) |
+| **Kiến trúc** | Clean Architecture (`Api` / `Application` / `Domain` / `Infrastructure`) |
+| **Bảo mật** | JWT + Refresh Token, BCrypt, phân quyền Admin / Employee |
+| **Khác** | FluentValidation, Serilog, Swagger, Docker, xUnit |
 
-## Quick summary
-- Framework: .NET 8
-- Database: MySQL
-- ORM: Dapper (no EF)
- # EmployeeManagement API
+---
 
- Đây là repository chứa backend theo kiến trúc Clean Architecture sử dụng .NET 8 cho hệ thống quản lý nhân viên (MySQL + Dapper). README này mô tả cách cài đặt, chạy, seed dữ liệu, test và deploy API. Nội dung tuân theo yêu cầu trong `backend.md`.
+## 1. Yêu cầu môi trường
 
- ## Tóm tắt nhanh
- - Framework: .NET 8
- - Cơ sở dữ liệu: MySQL
- - Data access: Dapper (không dùng EF)
- - Xác thực: JWT + Refresh Token, BCrypt
- - Validation: FluentValidation
- - Logging: Serilog
- - Tests: xUnit
- - Tài liệu API: Swagger (OpenAPI)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- MySQL 8 (local) **hoặc** Docker + Docker Compose
+- Git (tùy chọn) Postman
 
- ## Yêu cầu trước khi chạy
- - .NET 8 SDK
- - MySQL (local hoặc container)
- - Docker & docker-compose (tùy chọn, để chạy container)
- - Git
+---
 
- ## Cấu trúc repository
- - `src/Api` — ASP.NET Core Web API (Program, Controllers, Middleware)
- - `src/Application` — Services, DTOs, Validators
- - `src/Domain` — Entities
- - `src/Infrastructure` — Repositories, DB access (Dapper)
- - `tests` — xUnit tests
- - `database` — file `schema.sql` và `seed-admin-user.sql`
+## 2. Cấu trúc dự án
 
- ## Cấu hình
- File `src/Api/appsettings.json` chứa cấu hình mẫu (connection string, JWT). Thay đổi các giá trị theo môi trường hoặc sử dụng biến môi trường.
+```text
+EmployeeManagement.sln
+├── src/
+│   ├── Api/                 # Controllers, Middleware, Filters, Swagger, DI host
+│   ├── Application/         # Services, DTOs, Validators, Interfaces
+│   ├── Domain/              # Entities
+│   └── Infrastructure/      # Dapper Repositories, DbConnectionFactory
+├── tests/
+│   └── EmployeeManagement.Tests/   # xUnit + Moq (≥ 10 unit tests)
+├── database/
+│   ├── schema.sql           # Schema + seed mẫu
+│   └── seed-admin-user.sql  # Role + tài khoản Admin
+├── postman/                 # Postman Collection + Environment
+├── Images/                  # Ảnh minh họa Swagger / Auth
+├── Dockerfile
+├── docker-compose.yml
+├── API_LAYER.md             # Tài liệu kiến trúc tầng API
+└── backend.md               # Đề bài / yêu cầu
+```
 
- Các khóa quan trọng:
- - `ConnectionStrings:DefaultConnection` — chuỗi kết nối MySQL
- - `Jwt:Key` — secret để ký token (nên >= 32 ký tự)
- - `Jwt:Issuer` / `Jwt:Audience`
+### Luồng Clean Architecture
 
- ## Thiết lập cơ sở dữ liệu
- 1. Tạo database và các bảng bằng `database/schema.sql`:
+```text
+HTTP Request
+  → Api (Controller)          # chỉ HTTP, không SQL, không try/catch nghiệp vụ
+    → Application (Service)   # business rules
+      → Infrastructure (Repository + Dapper)
+        → MySQL
+  ← ExceptionMiddleware + ApiResponseFilter (chuẩn hóa lỗi & response)
+```
 
- ```bash
- # Nếu dùng root
- mysql -u root -p < database/schema.sql
+**Quy ước:**
 
- # Hoặc dùng user theo appsettings
- mysql -u emsuser -pYourPassword123 EmployeeManagementDb < database/schema.sql
- ```
+- Không viết SQL trong Controller.
+- Controller chỉ gọi **Service** (Application), không gọi Repository trực tiếp.
+- Exception xử lý tập trung bằng Middleware.
 
- 2. (Tùy chọn) Seed dữ liệu admin và role:
+---
 
- ```bash
- mysql -u emsuser -pYourPassword123 EmployeeManagementDb < database/seed-admin-user.sql
- ```
+## 3. Cấu hình
 
- `seed-admin-user.sql` sẽ tạo các role `ADMIN` và `EMPLOYEE` và một user admin.
+File: `src/Api/appsettings.json`
 
- ## Chạy API (chạy cục bộ)
- Từ thư mục gốc repository:
+| Key | Mô tả |
+|-----|--------|
+| `ConnectionStrings:DefaultConnection` | Chuỗi kết nối MySQL |
+| `Jwt:Key` | Secret ký JWT (tối thiểu 32 ký tự) |
+| `Jwt:Issuer` / `Jwt:Audience` | Issuer & Audience |
+| `Jwt:ExpiresInMinutes` | Thời hạn Access Token (mặc định 60) |
+| `Jwt:RefreshTokenDays` | Thời hạn Refresh Token (mặc định 7) |
 
- ```bash
- cd src/Api
- dotnet run
- ```
+**Mẫu connection (local):**
 
- Nếu cổng `5269` đã được dùng, chạy trên cổng khác:
+```text
+Server=localhost;Database=EmployeeManagementDb;User Id=emsuser;Password=YourPassword123;
+```
 
- ```bash
- dotnet run --urls http://127.0.0.1:5270
- ```
+Production nên dùng biến môi trường, không commit secret thật.
 
- Mở Swagger UI:
+---
 
- ```
- http://localhost:5269/swagger
- # hoặc http://localhost:5270/swagger
- ```
+## 4. Cơ sở dữ liệu
 
- ## Chạy bằng Docker (khuyến nghị để deploy)
-Repository đã có `Dockerfile` và `docker-compose.yml` ở root để chạy API cùng MySQL.
+### 4.1. Tạo schema
 
- Chạy toàn bộ stack:
+```bash
+# Từ thư mục gốc repo
+mysql -u root -p < database/schema.sql
+```
 
- ```bash
- docker compose up --build
- ```
+Hoặc user ứng dụng:
 
- Sau khi khởi động:
- - API: http://localhost:8080/swagger
- - MySQL: localhost:3306
+```bash
+mysql -u emsuser -pYourPassword123 < database/schema.sql
+```
 
- Dừng stack:
+### 4.2. Seed Admin (nếu chưa có)
 
- ```bash
- docker compose down
- ```
+```bash
+mysql -u emsuser -pYourPassword123 EmployeeManagementDb < database/seed-admin-user.sql
+```
 
- Nếu muốn xoá dữ liệu MySQL volume:
+### 4.3. Tài khoản Admin mặc định (seed)
 
- ```bash
- docker compose down -v
+| Trường | Giá trị |
+|--------|---------|
+| Email | `admin@example.com` |
+| Password | `admin123` |
+| Role | `ADMIN` |
 
- ## Xác thực & test bằng Swagger
- 1. Tạo user (hoặc dùng admin đã seed): POST `/api/Auth/register` (nếu endpoint cho phép tạo public user)
- 2. Đăng nhập: POST `/api/Auth/login` với body:
+> Nếu login fail (hash cũ lệch môi trường), đăng ký user thường rồi gán role `ADMIN` bằng SQL, hoặc tạo Admin qua API `POST /api/Users` khi đã login bằng Admin khác.
 
- ```json
- {
-   "email": "admin.test@example.com",
-   "password": "Admin123@"
- }
- ```
+### 4.4. Các bảng chính
 
- 3. Sao chép `accessToken` từ response. Trên Swagger bấm **Authorize** và dán:
+`Users`, `Roles`, `UserRoles`, `Employees`, `Departments`, `Positions`, `RefreshTokens`, `AuditLogs`  
+(+ PK, FK, Index, Unique, Soft Delete)
 
- ```
- Bearer <accessToken>
- ```
+---
 
- 4. Gọi các endpoint cần quyền:
- - Employees, Departments, Positions, Profile, Dashboard
+## 5. Chạy local
 
- Quyền:
- - `Admin`: toàn quyền
- - `Employee`: xem/cập nhật profile, hiển thị danh sách nơi được phép
+```bash
+# 1. Đảm bảo MySQL đã chạy và đã import schema/seed
+# 2. Chạy API
+cd src/Api
+dotnet run
+```
 
- ## Upload avatar
- - Endpoint: `POST /api/Profile/avatar`
- - Chấp nhận: `jpg`, `jpeg`, `png`
- - Kích thước tối đa: 2 MB
+- Swagger: **http://localhost:5269/swagger**
+- Health: **http://localhost:5269/health**
 
- Ví dụ curl:
+Đổi cổng nếu cần:
 
- ```bash
- curl -X POST "http://localhost:5269/api/Profile/avatar" -H "Authorization: Bearer <token>" -F "file=@./avatar.jpg"
- ```
+```bash
+dotnet run --urls http://127.0.0.1:5270
+```
 
- ## Tests
- Chạy unit tests:
+---
 
- ```bash
- cd /home/tts/EmployeeManagement
- dotnet test EmployeeManagement.sln
- ```
+## 6. Chạy bằng Docker
 
- Unit tests nằm ở `tests/EmployeeManagement.Tests`.
+Đã có `Dockerfile` + `docker-compose.yml`.
 
- ## Health check
- Endpoint kiểm tra sức khỏe:
+```bash
+# Từ thư mục gốc repo
+docker compose up --build
+```
 
- ```
- GET /health
- ```
+| Service | URL / Port |
+|---------|------------|
+| API + Swagger | http://localhost:8080/swagger |
+| MySQL (host) | `localhost:3307` → container `3306` |
+| Health | http://localhost:8080/health |
 
- ## Logging
- Serilog ghi log vào `src/Api/Logs/log-YYYYMMDD.txt` và console. Kiểm tra file này để xem request/response và exception.
+Dừng:
 
- ## Kiểm tra bảo mật & thực hành tốt
- - Đảm bảo `Jwt:Key` đủ dài (>= 32 ký tự).
- - Không commit secrets; dùng biến môi trường cho production.
- - Xem xét thêm rate limiting, CORS cho môi trường thực tế.
+```bash
+docker compose down
+# Xóa volume MySQL:
+docker compose down -v
+```
 
- ## Checklist theo `backend.md`
- - [x] .NET 8 + Clean Architecture
- - [x] MySQL + Dapper
- - [x] JWT + Refresh Token + BCrypt
- - [x] Validation (FluentValidation)
- - [x] Logging (Serilog)
- - [x] Swagger / OpenAPI
- - [x] Exception middleware
- - [x] Unit tests (>= 10)
- - [ ] Dockerfile + docker-compose (chưa có)
- - [ ] Postman collection, ảnh Swagger (chưa có)
+Compose tự mount `database/schema.sql` và `seed-admin-user.sql` khi khởi tạo DB lần đầu.
 
- ## Khắc phục sự cố (Troubleshooting)
- - Cổng đang dùng: đổi `--urls` hoặc tìm process chiếm cổng:
+---
 
- ```bash
- lsof -i :5269
- ss -ltnp | grep 5269
- kill <pid>
- ```
+## 7. Xác thực trên Swagger
 
- - Lỗi restore NuGet do mạng: dùng cache local hoặc:
+### 7.1. Đăng nhập Admin
 
- ```bash
- dotnet restore --ignore-failed-sources
- ```
+`POST /api/Auth/login`
 
- - Lỗi kết nối DB: kiểm tra `ConnectionStrings:DefaultConnection`, user/host/port, và quyền truy cập MySQL.
+```json
+{
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+```
 
+### 7.2. Authorize
+
+1. Copy `accessToken` từ response.
+2. Bấm **Authorize** trên Swagger.
+3. Dán: `Bearer <accessToken>` (có chữ `Bearer` và khoảng trắng).
+
+### 7.3. Phân quyền
+
+| Role | Quyền |
+|------|--------|
+| **ADMIN** | Quản lý Users, Employees, Departments, Positions, Dashboard |
+| **EMPLOYEE** | Profile (xem/sửa), đổi mật khẩu, upload avatar; xem danh sách phòng ban (GET) |
+
+### 7.4. Tạo tài khoản
+
+| Cách | Endpoint | Ghi chú |
+|------|----------|---------|
+| Đăng ký public | `POST /api/Auth/register` | **Luôn** gán role `EMPLOYEE` (không nhận role từ client) |
+| Admin tạo user | `POST /api/Users` | Cần JWT Admin; `roleCode`: `ADMIN` hoặc `EMPLOYEE` |
+
+Ví dụ tạo Admin mới (đã Authorize bằng Admin):
+
+```json
+{
+  "fullName": "Admin Mới",
+  "email": "admin.new@company.com",
+  "password": "Admin123@",
+  "phoneNumber": "0912345678",
+  "roleCode": "ADMIN"
+}
+```
+
+---
+
+## 8. Danh sách API chính
+
+Base path: `/api`
+
+### Auth — `/api/Auth`
+
+| Method | Path | Auth | Mô tả |
+|--------|------|------|--------|
+| POST | `/register` | Public | Đăng ký (Employee) |
+| POST | `/login` | Public | Đăng nhập → JWT + Refresh Token |
+| POST | `/refresh-token` | Public | Làm mới token |
+| POST | `/logout` | Public | Thu hồi refresh token |
+| POST | `/change-password` | JWT | Đổi mật khẩu |
+| POST | `/forgot-password` | Public | OTP giả lập |
+| POST | `/reset-password` | Public | Đặt lại mật khẩu bằng OTP |
+
+### Users — `/api/Users` (Admin)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/` | Danh sách (page, pageSize) |
+| GET | `/{id}` | Chi tiết |
+| POST | `/` | Tạo user (+ role) |
+| PUT | `/{id}` | Cập nhật |
+| DELETE | `/{id}` | Soft delete (không được xóa chính mình) |
+
+### Employees — `/api/Employees` (Admin)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/` | Danh sách + search/filter/pagination |
+| GET | `/{id}` | Chi tiết |
+| POST | `/` | Thêm (tự sinh `EmployeeCode`) |
+| PUT | `/{id}` | Cập nhật |
+| DELETE | `/{id}` | Soft delete |
+| PATCH | `/{id}/restore` | Khôi phục |
+
+**Query list:** `page`, `pageSize`, `search` (tên/email/phone), `departmentId`, `positionId`, `status`
+
+### Departments — `/api/Departments`
+
+| Method | Path | Quyền |
+|--------|------|--------|
+| GET | `/`, `/{id}` | Admin hoặc Employee |
+| POST, PUT, DELETE | | Admin only |
+
+Không xóa phòng ban còn nhân viên.
+
+### Positions — `/api/Positions` (Admin)
+
+CRUD chức vụ. Không xóa chức vụ còn nhân viên.
+
+### Profile — `/api/Profile` (Admin hoặc Employee)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/` | Xem hồ sơ của mình |
+| PUT | `/` | Cập nhật hồ sơ |
+| POST | `/avatar` | Upload avatar (jpg/png, tối đa 2MB) |
+
+### Dashboard — `/api/Dashboard` (Admin)
+
+`GET /` — Tổng NV, theo phòng ban/chức vụ, đang làm, nghỉ việc, mới trong tháng.
+
+### Khác
+
+- `GET /health` — Health check  
+- Swagger UI — `/swagger`
+
+---
+
+## 9. Response chuẩn
+
+```json
+{
+  "success": true,
+  "message": "Thao tác thành công",
+  "data": {}
+}
+```
+
+Auth endpoints dùng `AuthResponse` (có `accessToken`, `refreshToken`, `message` tiếng Việt).
+
+---
+
+## 10. Validation & Business rules (tóm tắt)
+
+**Validation**
+
+- Email đúng định dạng, không trùng  
+- Password ≥ 8 ký tự, có chữ hoa, chữ thường, số  
+- SĐT định dạng Việt Nam  
+
+**Business**
+
+- Không xóa Department/Position khi còn Employee  
+- Email unique  
+- Mã nhân viên tự sinh  
+- Chỉ Admin tạo tài khoản (qua `/api/Users`); register public chỉ Employee  
+- Employee không sửa Role  
+- Không tự xóa tài khoản của mình  
+
+---
+
+## 11. Logging & Exception
+
+- **Serilog**: Console + file `src/Api/Logs/log-YYYYMMDD.txt`  
+- Log request / response / exception / login  
+- **ExceptionMiddleware**: bắt lỗi toàn cục, message tiếng Việt, không try/catch trong Controller  
+
+---
+
+## 12. Unit test
+
+```bash
+# Từ thư mục gốc repo
+dotnet test EmployeeManagement.sln
+```
+
+- Framework: **xUnit** + **Moq**  
+- Hiện tại: **33** unit tests (vượt yêu cầu tối thiểu 10)  
+- Thư mục: `tests/EmployeeManagement.Tests`
+
+---
+
+## 13. Postman & tài liệu kèm theo
+
+| Tài liệu | Đường dẫn |
+|----------|-----------|
+| Postman Collection | `postman/EmployeeManagement.postman_collection.json` |
+| Postman Environment | `postman/EmployeeManagement.postman_environment.json` |
+| Kiến trúc tầng API | `API_LAYER.md` |
+| Đề bài | `backend.md` |
+| Ảnh Swagger / Auth | `Images/Authentication/` |
+
+Import Postman: set `baseUrl` (vd. `http://localhost:5269`) và `accessToken` sau khi login.
+
+---
+
+## 14. Checklist theo `backend.md`
+
+### Công nghệ & kiến trúc
+
+- [x] .NET 8 Web API  
+- [x] MySQL + Dapper (không EF)  
+- [x] Clean Architecture  
+- [x] JWT + Refresh Token + BCrypt  
+- [x] FluentValidation  
+- [x] Serilog  
+- [x] Swagger  
+- [x] Exception Middleware  
+- [x] Docker (`Dockerfile` + `docker-compose.yml`)  
+- [x] xUnit (≥ 10 tests)  
+
+### Chức năng
+
+- [x] Đăng ký / Đăng nhập / Logout / Refresh / Đổi MK / Quên MK (OTP giả)  
+- [x] Phân quyền Admin / Employee  
+- [x] CRUD Employees (soft delete + restore)  
+- [x] CRUD Departments / Positions  
+- [x] Profile + Upload avatar (jpg/png ≤ 2MB)  
+- [x] Dashboard thống kê  
+- [x] Search / Filter / Pagination nhân viên  
+- [x] API response wrapper  
+
+### Nộp bài
+
+- [x] Source code  
+- [x] README hướng dẫn chạy  
+- [x] Script SQL  
+- [x] Dockerfile + docker-compose  
+- [x] Postman Collection  
+- [x] Tài liệu kiến trúc (`API_LAYER.md`)  
+- [x] Danh sách API (mục 8 README)  
+- [x] Hình ảnh Swagger (`Images/`)  
+
+### Khuyến khích
+
+- [x] Health Check (`/health`)  
+- [x] Global Response Wrapper  
+- [ ] Redis Cache  
+- [ ] Rate Limiting  
+- [ ] API Versioning  
+- [ ] CI/CD GitHub Actions  
+
+---
+
+## 15. Khắc phục sự cố
+
+**Cổng 5269 đang bị chiếm**
+
+```bash
+ss -ltnp | grep 5269
+# hoặc
+lsof -i :5269
+kill <pid>
+```
+
+**Lỗi restore NuGet (mạng)**
+
+```bash
+dotnet restore --ignore-failed-sources
+# hoặc dùng cache local:
+dotnet restore --source ~/.nuget/packages
+```
+
+**Lỗi kết nối MySQL**
+
+- Kiểm tra service MySQL đang chạy  
+- Đúng user/password/database trong `appsettings.json`  
+- Docker: host port là **3307**, không phải 3306  
+
+**Swagger vẫn hiện code cũ**
+
+- Dừng process API (`Ctrl+C`)  
+- `dotnet run` lại  
+- Hard refresh trình duyệt (`Ctrl+Shift+R`)  
+
+---
+
+## 16. Tác giả / Ghi chú
+
+Dự án backend fresher theo đề **Hệ thống Quản lý Nhân viên** (`backend.md`).  
+Chỉ backend API — không gồm frontend.

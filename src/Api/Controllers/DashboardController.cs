@@ -5,22 +5,25 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers;
 
+/// <summary>
+/// Presentation layer: only IDashboardService. No repository access.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class DashboardController : ControllerBase
 {
-    private readonly IDashboardRepository _repository;
+    private readonly IDashboardService _dashboardService;
 
-    public DashboardController(IDashboardRepository repository)
+    public DashboardController(IDashboardService dashboardService)
     {
-        _repository = repository;
+        _dashboardService = dashboardService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetStats()
     {
-        var result = await _repository.GetStatsAsync();
+        var result = await _dashboardService.GetStatsAsync();
         return Ok(result);
     }
 }

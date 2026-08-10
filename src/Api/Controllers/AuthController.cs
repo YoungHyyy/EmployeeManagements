@@ -1,6 +1,4 @@
 using System.Security.Claims;
-using System.Threading.Tasks;
-using EmployeeManagement.Api.Authentication;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,17 +6,18 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers
 {
+    /// <summary>
+    /// Presentation layer: HTTP only. Business logic lives in IAuthService (Application).
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly IUserRepository _userRepository;
 
-        public AuthController(IAuthService authService, IUserRepository userRepository)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
-            _userRepository = userRepository;
         }
 
         [AllowAnonymous]
@@ -54,30 +53,7 @@ namespace EmployeeManagement.Api.Controllers
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int userId;
-
-            if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var parsedId))
-            {
-                userId = parsedId;
-            }
-            else
-            {
-                var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
-                if (string.IsNullOrWhiteSpace(email))
-                {
-                    return Unauthorized(new { success = false, message = "Không có quyền truy cập" });
-                }
-
-                var user = await _userRepository.GetByEmailAsync(email);
-                if (user == null)
-                {
-                    return Unauthorized(new { success = false, message = "Không tìm thấy người dùng" });
-                }
-
-                userId = user.Id;
-            }
-
+            var userId = GetCurrentUserId();
             var result = await _authService.ChangePasswordAsync(userId, request);
             return result.Success ? Ok(result) : BadRequest(result);
         }
@@ -94,6 +70,17 @@ namespace EmployeeManagement.Api.Controllers
         {
             var result = await _authService.ResetPasswordAsync(request);
             return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            {
+                throw new UnauthorizedAccessException("Không có quyền truy cập");
+            }
+
+            return userId;
         }
     }
 }

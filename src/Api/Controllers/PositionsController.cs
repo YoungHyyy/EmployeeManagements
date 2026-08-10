@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers;
 
+/// <summary>
+/// Presentation layer: only IPositionService. Exceptions handled by middleware.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
@@ -51,15 +54,7 @@ public class PositionsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        try
-        {
-            await _service.DeleteAsync(id);
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        await _service.DeleteAsync(id);
+        return NoContent();
     }
-
 }

@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using System.Security.Claims;
 using EmployeeManagement.Api.Authentication;
 using EmployeeManagement.Application.DTOs;
@@ -8,18 +7,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers
 {
+    /// <summary>
+    /// Presentation layer: only IUserService. No repository, no try/catch.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly IUserRepository _userRepository;
 
-        public UsersController(IUserService userService, IUserRepository userRepository)
+        public UsersController(IUserService userService)
         {
             _userService = userService;
-            _userRepository = userRepository;
         }
 
         [HttpGet]
@@ -41,13 +41,6 @@ namespace EmployeeManagement.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
-            // Endpoint is AdminOnly: only an existing Admin may create users (including ADMIN).
-            var existing = await _userRepository.GetByEmailAsync(req.Email);
-            if (existing != null)
-            {
-                return BadRequest(new { message = "Email đã tồn tại" });
-            }
-
             var created = await _userService.CreateAsync(req);
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
@@ -62,30 +55,14 @@ namespace EmployeeManagement.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            // Prevent deleting own account
+            int? currentUserId = null;
             var currentIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!string.IsNullOrWhiteSpace(currentIdClaim) && int.TryParse(currentIdClaim, out var currentId))
+            if (!string.IsNullOrWhiteSpace(currentIdClaim) && int.TryParse(currentIdClaim, out var parsedId))
             {
-                if (currentId == id)
-                {
-                    return BadRequest(new { message = "Không thể xóa tài khoản của chính mình" });
-                }
-            }
-            else
-            {
-                // Fallback: attempt to resolve by email
-                var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
-                if (!string.IsNullOrWhiteSpace(email))
-                {
-                    var currentUser = await _userRepository.GetByEmailAsync(email);
-                    if (currentUser != null && currentUser.Id == id)
-                    {
-                        return BadRequest(new { message = "Không thể xóa tài khoản của chính mình" });
-                    }
-                }
+                currentUserId = parsedId;
             }
 
-            await _userService.DeleteAsync(id);
+            await _userService.DeleteAsync(id, currentUserId);
             return NoContent();
         }
     }

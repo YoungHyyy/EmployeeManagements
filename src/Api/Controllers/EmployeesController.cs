@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers;
 
+/// <summary>
+/// Presentation layer: only IEmployeeService. No SQL, no try/catch.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
@@ -19,7 +22,13 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null, [FromQuery] int? departmentId = null, [FromQuery] int? positionId = null, [FromQuery] string? status = null)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] int? departmentId = null,
+        [FromQuery] int? positionId = null,
+        [FromQuery] string? status = null)
     {
         var items = await _service.GetAllAsync(page, pageSize, search, departmentId, positionId, status);
         return Ok(items);
@@ -35,7 +44,6 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Create([FromBody] EmployeeDto request)
     {
         var created = await _service.CreateAsync(request);
@@ -43,7 +51,6 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Update(int id, [FromBody] EmployeeDto request)
     {
         await _service.UpdateAsync(id, request);
@@ -51,7 +58,6 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Delete(int id)
     {
         await _service.DeleteAsync(id);
@@ -59,11 +65,9 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPatch("{id}/restore")]
-    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> Restore(int id)
     {
         await _service.RestoreAsync(id);
         return NoContent();
     }
-
 }

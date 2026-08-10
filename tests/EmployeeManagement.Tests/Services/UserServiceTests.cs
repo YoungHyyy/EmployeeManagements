@@ -13,6 +13,7 @@ public class UserServiceTests
     public async Task CreateAsync_ShouldCreateAdmin_WhenRoleCodeIsAdmin()
     {
         var userRepo = new Mock<IUserRepository>();
+        userRepo.Setup(x => x.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync((User?)null);
         userRepo.Setup(x => x.CreateAsync(It.IsAny<User>())).ReturnsAsync(10);
         userRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(new User
         {
@@ -77,10 +78,22 @@ public class UserServiceTests
     public async Task DeleteAsync_ShouldCallSoftDelete()
     {
         var userRepo = new Mock<IUserRepository>();
+        userRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(new User { Id = 10, Email = "u@mail.com" });
         var service = new UserService(userRepo.Object, Mock.Of<IRoleRepository>());
 
         await service.DeleteAsync(10);
 
         userRepo.Verify(x => x.SoftDeleteAsync(10), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldThrow_WhenDeletingOwnAccount()
+    {
+        var service = new UserService(Mock.Of<IUserRepository>(), Mock.Of<IRoleRepository>());
+
+        var act = async () => await service.DeleteAsync(5, currentUserId: 5);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Không thể xóa tài khoản của chính mình*");
     }
 }

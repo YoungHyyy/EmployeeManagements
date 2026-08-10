@@ -10,6 +10,6 @@ namespace EmployeeManagement.Application.Interfaces
         Task<IEnumerable<UserResponse>> ListAsync(int page, int pageSize);
         Task<UserResponse> CreateAsync(CreateUserRequest request);
         Task UpdateAsync(int id, UpdateUserRequest request);
-        Task DeleteAsync(int id);
+        Task DeleteAsync(int id, int? currentUserId = null);
     }
 }

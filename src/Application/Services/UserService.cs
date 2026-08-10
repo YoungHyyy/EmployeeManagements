@@ -21,8 +21,13 @@ namespace EmployeeManagement.Application.Services
 
         public async Task<UserResponse> CreateAsync(CreateUserRequest request)
         {
-            // Role assignment is only reachable via Admin-only API (/api/users).
-            // Public register never uses this path and always forces EMPLOYEE.
+            var existing = await _userRepo.GetByEmailAsync(request.Email);
+            if (existing != null)
+            {
+                throw new InvalidOperationException("Email đã tồn tại");
+            }
+
+            // Role assignment only via Admin-only API (/api/users). Public register always EMPLOYEE.
             var roleCode = string.IsNullOrWhiteSpace(request.RoleCode)
                 ? "EMPLOYEE"
                 : request.RoleCode.Trim().ToUpperInvariant();
@@ -54,9 +59,17 @@ namespace EmployeeManagement.Application.Services
             return Map(created!);
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(int id, int? currentUserId = null)
         {
-            await _userRepo.SoftDeleteAsync(id);
+            if (currentUserId.HasValue && currentUserId.Value == id)
+            {
+                throw new InvalidOperationException("Không thể xóa tài khoản của chính mình");
+            }
+
+            var user = await _userRepo.GetByIdAsync(id)
+                ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
+
+            await _userRepo.SoftDeleteAsync(user.Id);
         }
 
         public async Task<UserResponse?> GetByIdAsync(int id)
@@ -73,8 +86,9 @@ namespace EmployeeManagement.Application.Services
 
         public async Task UpdateAsync(int id, UpdateUserRequest request)
         {
-            var user = await _userRepo.GetByIdAsync(id);
-            if (user == null) return;
+            var user = await _userRepo.GetByIdAsync(id)
+                ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
+
             user.FullName = request.FullName;
             user.PhoneNumber = request.PhoneNumber;
             user.IsActive = request.IsActive;
@@ -91,5 +105,4 @@ namespace EmployeeManagement.Application.Services
             CreatedAt = u.CreatedAt
         };
     }
-    
 }
