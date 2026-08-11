@@ -336,7 +336,9 @@ LIMIT 20;
 
 ---
 
-## 9. Response chuẩn
+## 9. Response chuẩn & mã HTTP
+
+### Body JSON (mọi API)
 
 ```json
 {
@@ -346,7 +348,21 @@ LIMIT 20;
 }
 ```
 
-Auth endpoints dùng `AuthResponse` (có `accessToken`, `refreshToken`, `message` tiếng Việt).
+Auth (`login`/`register`/…) dùng `AuthResponse`: `success`, `message`, `accessToken`, `refreshToken`, `expiresAt`.
+
+### Bảng mã HTTP
+
+| Mã | Khi nào | Ví dụ message |
+|----|---------|----------------|
+| **200** | Thành công (GET/PUT/DELETE/login OK) | `Đăng nhập thành công`, `Cập nhật...` |
+| **201** | Tạo mới thành công (POST) | `Thao tác thành công` + `data` |
+| **400** | Validate / sai mật khẩu login / rule nghiệp vụ | `Email đã tồn tại`, `Thông tin đăng nhập không hợp lệ` |
+| **401** | Chưa login / token sai / hết hạn | `Chưa đăng nhập hoặc token không hợp lệ` |
+| **403** | Đã login nhưng sai role (Employee gọi Admin API) | `Bạn không có quyền thực hiện thao tác này` |
+| **404** | Không tìm thấy resource | `Không tìm thấy nhân viên` |
+| **500** | Lỗi hệ thống | `Đã xảy ra lỗi hệ thống` |
+
+> **Lưu ý:** Login **thành công = 200**. Login **sai mật khẩu = 400** (không dùng 401 — 401 dành cho JWT).
 
 ---
 

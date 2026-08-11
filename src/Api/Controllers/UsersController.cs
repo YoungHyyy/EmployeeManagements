@@ -20,40 +20,50 @@ namespace EmployeeManagement.Api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> List([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             var list = await _userService.ListAsync(page, pageSize);
             return Ok(list);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Get(int id)
         {
             var u = await _userService.GetByIdAsync(id);
             return u == null
-                ? NotFound(new { success = false, message = "Không tìm thấy người dùng" })
+                ? NotFound(ApiResponse.Fail("Không tìm thấy người dùng"))
                 : Ok(u);
         }
 
         [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
             var created = await _userService.CreateAsync(req, GetCurrentUserId());
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest req)
         {
             await _userService.UpdateAsync(id, req, GetCurrentUserId());
-            return NoContent();
+            return Ok(ApiResponse.Ok(message: "Cập nhật người dùng thành công"));
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete(int id)
         {
             await _userService.DeleteAsync(id, GetCurrentUserId());
-            return NoContent();
+            return Ok(ApiResponse.Ok(message: "Xóa người dùng thành công"));
         }
 
         private int? GetCurrentUserId()

@@ -1,12 +1,22 @@
+using EmployeeManagement.Domain.Attributes;
+
 namespace EmployeeManagement.Domain.Entities;
 
+/// <summary>CRUD cột auto qua GenericRepository (Dapper+Reflection) — thêm field chỉ sửa entity + DB.</summary>
+[DbTable("Employees")]
 public class Employee
 {
     public int Id { get; set; }
+
+    [DbUpdateIgnore]
     public int? UserId { get; set; }
+
     public int DepartmentId { get; set; }
     public int PositionId { get; set; }
+
+    [DbUpdateIgnore]
     public string EmployeeCode { get; set; } = string.Empty;
+
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }

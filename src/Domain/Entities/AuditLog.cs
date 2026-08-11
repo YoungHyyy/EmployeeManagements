@@ -1,5 +1,9 @@
+using EmployeeManagement.Domain.Attributes;
+
 namespace EmployeeManagement.Domain.Entities;
 
+/// <summary>Append-only — insert map cột qua BaseRepository.InsertMappedAsync.</summary>
+[DbTable("AuditLogs")]
 public class AuditLog
 {
     public long Id { get; set; }

@@ -113,6 +113,9 @@ public class EmployeeService : IEmployeeService
 
     public async Task DeleteAsync(int id, int? actorUserId = null)
     {
+        _ = await _repository.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy nhân viên");
+
         await _repository.SoftDeleteAsync(id);
 
         await _auditLogService.WriteAsync(new AuditLogWriteRequest
@@ -128,6 +131,8 @@ public class EmployeeService : IEmployeeService
 
     public async Task RestoreAsync(int id, int? actorUserId = null)
     {
+        // Restore: bản ghi có thể đang soft-deleted → GetById (IsDeleted=0) sẽ null
+        // SoftDeleteRepository.RestoreAsync vẫn chạy; kiểm tra tồn tại qua repo raw nếu cần
         await _repository.RestoreAsync(id);
 
         await _auditLogService.WriteAsync(new AuditLogWriteRequest

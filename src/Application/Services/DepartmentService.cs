@@ -44,8 +44,8 @@ public class DepartmentService : IDepartmentService
 
     public async Task UpdateAsync(int id, DepartmentDto request)
     {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null) return;
+        var existing = await _repository.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy phòng ban");
 
         existing.Code = request.Code;
         existing.Name = request.Name;
@@ -57,7 +57,10 @@ public class DepartmentService : IDepartmentService
 
     public async Task DeleteAsync(int id)
     {
-        var (linkedEmployees, total) = await _employeeRepository.ListAsync(new DTOs.EmployeeListQuery
+        _ = await _repository.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy phòng ban");
+
+        var (linkedEmployees, total) = await _employeeRepository.ListAsync(new EmployeeListQuery
         {
             Page = 1,
             PageSize = 1,

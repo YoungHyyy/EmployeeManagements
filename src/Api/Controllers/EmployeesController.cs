@@ -21,21 +21,11 @@ public class EmployeesController : ControllerBase
         _service = service;
     }
 
-    /// <summary>
-    /// Danh sách nhân viên: search / filter / sort / pagination.
-    /// </summary>
-    /// <param name="page">Trang (mặc định 1)</param>
-    /// <param name="pageSize">Số bản ghi/trang (mặc định 20, max 100)</param>
-    /// <param name="search">Tìm theo họ tên HOẶC email HOẶC SĐT</param>
-    /// <param name="searchName">Tìm theo họ tên</param>
-    /// <param name="searchEmail">Tìm theo email</param>
-    /// <param name="searchPhone">Tìm theo số điện thoại</param>
-    /// <param name="departmentId">Lọc phòng ban</param>
-    /// <param name="positionId">Lọc chức vụ</param>
-    /// <param name="status">Lọc trạng thái (Working, Probation, Resigned, OnLeave)</param>
-    /// <param name="sortBy">fullName | createdAt | hireDate</param>
-    /// <param name="sortDir">asc | desc</param>
+    /// <summary>Danh sách: search / filter / sort / pagination → 200</summary>
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -67,43 +57,57 @@ public class EmployeesController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id}")]
+    /// <summary>Chi tiết → 200 / 404</summary>
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(int id)
     {
         var item = await _service.GetByIdAsync(id);
         return item == null
-            ? NotFound(new { success = false, message = "Không tìm thấy nhân viên" })
+            ? NotFound(ApiResponse.Fail("Không tìm thấy nhân viên"))
             : Ok(item);
     }
 
+    /// <summary>Tạo mới → 201</summary>
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] EmployeeDto request)
     {
         var created = await _service.CreateAsync(request, GetCurrentUserId());
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
-    [HttpPut("{id}")]
+    /// <summary>Cập nhật → 200 / 404 / 400</summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Update(int id, [FromBody] EmployeeDto request)
     {
-        // Id từ route (filter cũng gán trước validation)
         request.Id = id;
         await _service.UpdateAsync(id, request, GetCurrentUserId());
-        return NoContent();
+        return Ok(ApiResponse.Ok(message: "Cập nhật nhân viên thành công"));
     }
 
-    [HttpDelete("{id}")]
+    /// <summary>Xóa mềm → 200 / 404</summary>
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
         await _service.DeleteAsync(id, GetCurrentUserId());
-        return NoContent();
+        return Ok(ApiResponse.Ok(message: "Xóa nhân viên thành công"));
     }
 
-    [HttpPatch("{id}/restore")]
+    /// <summary>Khôi phục → 200</summary>
+    [HttpPatch("{id:int}/restore")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Restore(int id)
     {
         await _service.RestoreAsync(id, GetCurrentUserId());
-        return NoContent();
+        return Ok(ApiResponse.Ok(message: "Khôi phục nhân viên thành công"));
     }
 
     private int? GetCurrentUserId()

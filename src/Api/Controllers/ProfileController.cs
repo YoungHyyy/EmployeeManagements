@@ -30,7 +30,7 @@ public class ProfileController : ControllerBase
         var email = GetCurrentUserEmail();
         var profile = await _profileService.GetByEmailAsync(email);
         return profile == null
-            ? NotFound(new { success = false, message = "Không tìm thấy hồ sơ người dùng" })
+            ? NotFound(ApiResponse.Fail("Không tìm thấy hồ sơ người dùng"))
             : Ok(profile);
     }
 
@@ -39,7 +39,7 @@ public class ProfileController : ControllerBase
     {
         var email = GetCurrentUserEmail();
         await _profileService.UpdateByEmailAsync(email, request);
-        return NoContent();
+        return Ok(ApiResponse.Ok(message: "Cập nhật hồ sơ thành công"));
     }
 
     [HttpPost("avatar")]
@@ -64,7 +64,7 @@ public class ProfileController : ControllerBase
             file.Length,
             storageRoot);
 
-        return Ok(new { success = true, message = "Tải ảnh đại diện thành công", data = new { avatarUrl = avatarPath } });
+        return Ok(ApiResponse.Ok(new { avatarUrl = avatarPath }, "Tải ảnh đại diện thành công"));
     }
 
     private string GetCurrentUserEmail()
@@ -73,7 +73,7 @@ public class ProfileController : ControllerBase
                     ?? User.Identity?.Name;
         if (string.IsNullOrWhiteSpace(email))
         {
-            throw new UnauthorizedAccessException("Không có quyền truy cập");
+            throw new UnauthorizedAccessException("Chưa đăng nhập hoặc token không hợp lệ");
         }
 
         return email;

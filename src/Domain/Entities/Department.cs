@@ -1,5 +1,8 @@
+using EmployeeManagement.Domain.Attributes;
+
 namespace EmployeeManagement.Domain.Entities;
 
+[DbTable("Departments")]
 public class Department
 {
     public int Id { get; set; }
@@ -10,4 +13,5 @@ public class Department
     public bool IsDeleted { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

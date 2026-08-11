@@ -8,6 +8,11 @@ namespace EmployeeManagement.Api.Middleware;
 
 public class ExceptionMiddleware
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
 
@@ -22,43 +27,80 @@ public class ExceptionMiddleware
         try
         {
             await _next(context);
+
+            // Một số pipeline trả 401/403 không body (auth challenge mặc định)
+            if (!context.Response.HasStarted
+                && context.Response.StatusCode is StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden
+                && (context.Response.ContentLength is null or 0)
+                && string.IsNullOrEmpty(context.Response.ContentType))
+            {
+                await WriteErrorAsync(
+                    context,
+                    context.Response.StatusCode,
+                    context.Response.StatusCode == StatusCodes.Status401Unauthorized
+                        ? "Chưa đăng nhập hoặc token không hợp lệ"
+                        : "Bạn không có quyền thực hiện thao tác này");
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
-            context.Response.ContentType = "application/json";
-
-            var (statusCode, message) = MapException(ex);
-            context.Response.StatusCode = (int)statusCode;
-
-            var response = new ApiResponse<object>
+            if (context.Response.HasStarted)
             {
-                Success = false,
-                Message = message,
-                Data = null
-            };
+                _logger.LogError(ex, "Exception after response started for {Method} {Path}", context.Request.Method, context.Request.Path);
+                throw;
+            }
 
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            _logger.LogError(ex, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
+            var (statusCode, message) = MapException(ex);
+            await WriteErrorAsync(context, (int)statusCode, message);
         }
+    }
+
+    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message)
+    {
+        context.Response.Clear();
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.StatusCode = statusCode;
+
+        var response = ApiResponse.Fail(message);
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
     }
 
     private static (HttpStatusCode StatusCode, string Message) MapException(Exception ex)
     {
         return ex switch
         {
-            ArgumentException or InvalidOperationException
-                => (HttpStatusCode.BadRequest, string.IsNullOrWhiteSpace(ex.Message) ? "Yêu cầu không hợp lệ" : ex.Message),
-            KeyNotFoundException or FileNotFoundException
+            ArgumentException => (
+                HttpStatusCode.BadRequest,
+                string.IsNullOrWhiteSpace(ex.Message) ? "Yêu cầu không hợp lệ" : ex.Message),
+
+            InvalidOperationException => (
+                HttpStatusCode.BadRequest,
+                string.IsNullOrWhiteSpace(ex.Message) ? "Yêu cầu không hợp lệ" : ex.Message),
+
+            KeyNotFoundException => (
+                HttpStatusCode.NotFound,
+                string.IsNullOrWhiteSpace(ex.Message) ? "Không tìm thấy dữ liệu" : ex.Message),
+
+            FileNotFoundException => (
+                HttpStatusCode.NotFound,
+                string.IsNullOrWhiteSpace(ex.Message) ? "Không tìm thấy dữ liệu" : ex.Message),
+
+            UnauthorizedAccessException => (
+                HttpStatusCode.Unauthorized,
+                string.IsNullOrWhiteSpace(ex.Message) ? "Chưa đăng nhập hoặc token không hợp lệ" : ex.Message),
+
+            _ when Contains(ex.Message, "not found") || Contains(ex.Message, "không tìm thấy")
                 => (HttpStatusCode.NotFound, string.IsNullOrWhiteSpace(ex.Message) ? "Không tìm thấy dữ liệu" : ex.Message),
-            UnauthorizedAccessException
-                => (HttpStatusCode.Unauthorized, "Không có quyền truy cập"),
-            _ when ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                => (HttpStatusCode.NotFound, "Không tìm thấy dữ liệu"),
-            _ when ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
-                => (HttpStatusCode.BadRequest, "Dữ liệu đã tồn tại"),
-            _ when ex.Message.Contains("không tìm thấy", StringComparison.OrdinalIgnoreCase)
-                => (HttpStatusCode.NotFound, ex.Message),
+
+            _ when Contains(ex.Message, "already exists") || Contains(ex.Message, "đã tồn tại")
+                => (HttpStatusCode.BadRequest, string.IsNullOrWhiteSpace(ex.Message) ? "Dữ liệu đã tồn tại" : ex.Message),
+
             _ => (HttpStatusCode.InternalServerError, "Đã xảy ra lỗi hệ thống")
         };
     }
+
+    private static bool Contains(string? source, string value)
+        => !string.IsNullOrEmpty(source)
+           && source.Contains(value, StringComparison.OrdinalIgnoreCase);
 }

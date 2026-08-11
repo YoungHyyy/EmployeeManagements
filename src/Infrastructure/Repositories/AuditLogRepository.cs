@@ -1,81 +1,41 @@
-using Dapper;
+using System.Reflection;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
+using EmployeeManagement.Domain.Attributes;
 using EmployeeManagement.Domain.Entities;
 
 namespace EmployeeManagement.Infrastructure.Repositories;
 
-public class AuditLogRepository : IAuditLogRepository
+/// <summary>
+/// Append-only: INSERT map entity (Reflection + Dapper). List = filter đặc thù.
+/// Không EF, không soft-delete full CRUD.
+/// </summary>
+public class AuditLogRepository : BaseRepository<AuditLog>, IAuditLogRepository
 {
-    private readonly IDbConnectionFactory _dbFactory;
+    private static readonly string Table =
+        typeof(AuditLog).GetCustomAttribute<DbTableAttribute>()?.Name
+        ?? "AuditLogs";
 
-    public AuditLogRepository(IDbConnectionFactory dbFactory)
+    private static readonly EntityColumnMapper.ColumnMap Columns =
+        EntityColumnMapper.GetMap(typeof(AuditLog), EntityColumnMapper.IdentityOnlySystemColumns);
+
+    public AuditLogRepository(IDbConnectionFactory dbFactory) : base(dbFactory)
     {
-        _dbFactory = dbFactory;
     }
 
-    public async Task AddAsync(AuditLog log)
+    public Task AddAsync(AuditLog log)
+        => InsertMappedAsync(Table, log, Columns.InsertColumns, returnLastId: false);
+
+    public Task<(IEnumerable<AuditLog> Items, int TotalCount)> ListAsync(AuditLogQuery query)
     {
-        const string sql = @"
-            INSERT INTO AuditLogs
-                (UserId, Action, Module, EntityName, EntityId, IpAddress, RequestPath, Details, CreatedAt)
-            VALUES
-                (@UserId, @Action, @Module, @EntityName, @EntityId, @IpAddress, @RequestPath, @Details, @CreatedAt);";
+        var filter = new SqlFilterBuilder(Columns.AllColumns, softDeleteOnly: false)
+            .Equal(nameof(AuditLog.UserId), query.UserId)
+            .EqualUpper(nameof(AuditLog.Action), query.Action)
+            .Equal(nameof(AuditLog.Module), query.Module)
+            .GreaterOrEqual(nameof(AuditLog.CreatedAt), query.From)
+            .LessOrEqual(nameof(AuditLog.CreatedAt), query.To)
+            .AddPaging(query.Page, query.PageSize);
 
-        using var conn = _dbFactory.CreateConnection();
-        await conn.ExecuteAsync(sql, log);
-    }
-
-    public async Task<(IEnumerable<AuditLog> Items, int TotalCount)> ListAsync(AuditLogQuery query)
-    {
-        var where = "WHERE 1=1";
-        var parameters = new DynamicParameters();
-
-        if (query.UserId.HasValue)
-        {
-            where += " AND UserId = @UserId";
-            parameters.Add("UserId", query.UserId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Action))
-        {
-            where += " AND Action = @Action";
-            parameters.Add("Action", query.Action.Trim().ToUpperInvariant());
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Module))
-        {
-            where += " AND Module = @Module";
-            parameters.Add("Module", query.Module.Trim());
-        }
-
-        if (query.From.HasValue)
-        {
-            where += " AND CreatedAt >= @From";
-            parameters.Add("From", query.From.Value);
-        }
-
-        if (query.To.HasValue)
-        {
-            where += " AND CreatedAt <= @To";
-            parameters.Add("To", query.To.Value);
-        }
-
-        var offset = (query.Page - 1) * query.PageSize;
-        parameters.Add("Limit", query.PageSize);
-        parameters.Add("Offset", offset);
-
-        var countSql = $"SELECT COUNT(1) FROM AuditLogs {where}";
-        var listSql = $@"
-            SELECT Id, UserId, Action, Module, EntityName, EntityId, IpAddress, RequestPath, Details, CreatedAt
-            FROM AuditLogs
-            {where}
-            ORDER BY CreatedAt DESC, Id DESC
-            LIMIT @Limit OFFSET @Offset";
-
-        using var conn = _dbFactory.CreateConnection();
-        var total = await conn.ExecuteScalarAsync<int>(countSql, parameters);
-        var items = await conn.QueryAsync<AuditLog>(listSql, parameters);
-        return (items, total);
+        return ListTableByFilterAsync<AuditLog>(Table, filter, "`CreatedAt` DESC, `Id` DESC");
     }
 }

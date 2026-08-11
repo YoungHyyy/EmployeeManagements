@@ -6,9 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers;
 
-/// <summary>
-/// Presentation layer: only IDepartmentService. Exceptions handled by middleware.
-/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class DepartmentsController : ControllerBase
@@ -22,6 +19,7 @@ public class DepartmentsController : ControllerBase
 
     [Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var items = await _service.GetAllAsync(page, pageSize);
@@ -29,17 +27,21 @@ public class DepartmentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(int id)
     {
         var item = await _service.GetByIdAsync(id);
         return item == null
-            ? NotFound(new { success = false, message = "Không tìm thấy phòng ban" })
+            ? NotFound(ApiResponse.Fail("Không tìm thấy phòng ban"))
             : Ok(item);
     }
 
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] DepartmentDto request)
     {
         var created = await _service.CreateAsync(request);
@@ -47,18 +49,23 @@ public class DepartmentsController : ControllerBase
     }
 
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
-    [HttpPut("{id}")]
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(int id, [FromBody] DepartmentDto request)
     {
         await _service.UpdateAsync(id, request);
-        return NoContent();
+        return Ok(ApiResponse.Ok(message: "Cập nhật phòng ban thành công"));
     }
 
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
         await _service.DeleteAsync(id);
-        return NoContent();
+        return Ok(ApiResponse.Ok(message: "Xóa phòng ban thành công"));
     }
 }
