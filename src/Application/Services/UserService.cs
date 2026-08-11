@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
@@ -12,14 +9,19 @@ namespace EmployeeManagement.Application.Services
     {
         private readonly IUserRepository _userRepo;
         private readonly IRoleRepository _roleRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public UserService(IUserRepository userRepo, IRoleRepository roleRepository)
+        public UserService(
+            IUserRepository userRepo,
+            IRoleRepository roleRepository,
+            IAuditLogService? auditLogService = null)
         {
             _userRepo = userRepo;
             _roleRepository = roleRepository;
+            _auditLogService = auditLogService ?? new NoOpAuditLogService();
         }
 
-        public async Task<UserResponse> CreateAsync(CreateUserRequest request)
+        public async Task<UserResponse> CreateAsync(CreateUserRequest request, int? actorUserId = null)
         {
             var existing = await _userRepo.GetByEmailAsync(request.Email);
             if (existing != null)
@@ -27,7 +29,6 @@ namespace EmployeeManagement.Application.Services
                 throw new InvalidOperationException("Email đã tồn tại");
             }
 
-            // Role assignment only via Admin-only API (/api/users). Public register always EMPLOYEE.
             var roleCode = string.IsNullOrWhiteSpace(request.RoleCode)
                 ? "EMPLOYEE"
                 : request.RoleCode.Trim().ToUpperInvariant();
@@ -56,6 +57,18 @@ namespace EmployeeManagement.Application.Services
             await _roleRepository.AssignRoleAsync(id, roleId.Value);
 
             var created = await _userRepo.GetByIdAsync(id);
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = actorUserId,
+                Action = AuditActions.Create,
+                Module = AuditModules.User,
+                EntityName = "User",
+                EntityId = id.ToString(),
+                RequestPath = "/api/Users",
+                Details = $"Email={request.Email}; Role={roleCode}"
+            });
+
             return Map(created!);
         }
 
@@ -70,6 +83,17 @@ namespace EmployeeManagement.Application.Services
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
 
             await _userRepo.SoftDeleteAsync(user.Id);
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = currentUserId,
+                Action = AuditActions.SoftDelete,
+                Module = AuditModules.User,
+                EntityName = "User",
+                EntityId = id.ToString(),
+                RequestPath = $"/api/Users/{id}",
+                Details = $"Email={user.Email}"
+            });
         }
 
         public async Task<UserResponse?> GetByIdAsync(int id)
@@ -84,7 +108,7 @@ namespace EmployeeManagement.Application.Services
             return list.Select(Map);
         }
 
-        public async Task UpdateAsync(int id, UpdateUserRequest request)
+        public async Task UpdateAsync(int id, UpdateUserRequest request, int? actorUserId = null)
         {
             var user = await _userRepo.GetByIdAsync(id)
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
@@ -93,6 +117,16 @@ namespace EmployeeManagement.Application.Services
             user.PhoneNumber = request.PhoneNumber;
             user.IsActive = request.IsActive;
             await _userRepo.UpdateAsync(user);
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = actorUserId,
+                Action = AuditActions.Update,
+                Module = AuditModules.User,
+                EntityName = "User",
+                EntityId = id.ToString(),
+                RequestPath = $"/api/Users/{id}"
+            });
         }
 
         private static UserResponse Map(User u) => new UserResponse
@@ -104,5 +138,12 @@ namespace EmployeeManagement.Application.Services
             IsActive = u.IsActive,
             CreatedAt = u.CreatedAt
         };
+
+        private sealed class NoOpAuditLogService : IAuditLogService
+        {
+            public Task WriteAsync(AuditLogWriteRequest request) => Task.CompletedTask;
+            public Task<AuditLogListResult> GetListAsync(AuditLogQuery query)
+                => Task.FromResult(new AuditLogListResult());
+        }
     }
 }

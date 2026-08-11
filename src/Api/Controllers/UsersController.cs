@@ -7,9 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers
 {
-    /// <summary>
-    /// Presentation layer: only IUserService. No repository, no try/catch.
-    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
@@ -41,29 +38,28 @@ namespace EmployeeManagement.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
-            var created = await _userService.CreateAsync(req);
+            var created = await _userService.CreateAsync(req, GetCurrentUserId());
             return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserRequest req)
         {
-            await _userService.UpdateAsync(id, req);
+            await _userService.UpdateAsync(id, req, GetCurrentUserId());
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            int? currentUserId = null;
-            var currentIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!string.IsNullOrWhiteSpace(currentIdClaim) && int.TryParse(currentIdClaim, out var parsedId))
-            {
-                currentUserId = parsedId;
-            }
-
-            await _userService.DeleteAsync(id, currentUserId);
+            await _userService.DeleteAsync(id, GetCurrentUserId());
             return NoContent();
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(claim, out var id) ? id : null;
         }
     }
 }

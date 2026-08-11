@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EmployeeManagement.Api.Authentication;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
@@ -6,9 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeManagement.Api.Controllers;
 
-/// <summary>
-/// Presentation layer: only IEmployeeService. No SQL, no try/catch.
-/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
@@ -46,28 +44,34 @@ public class EmployeesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] EmployeeDto request)
     {
-        var created = await _service.CreateAsync(request);
+        var created = await _service.CreateAsync(request, GetCurrentUserId());
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] EmployeeDto request)
     {
-        await _service.UpdateAsync(id, request);
+        await _service.UpdateAsync(id, request, GetCurrentUserId());
         return NoContent();
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        await _service.DeleteAsync(id);
+        await _service.DeleteAsync(id, GetCurrentUserId());
         return NoContent();
     }
 
     [HttpPatch("{id}/restore")]
     public async Task<IActionResult> Restore(int id)
     {
-        await _service.RestoreAsync(id);
+        await _service.RestoreAsync(id, GetCurrentUserId());
         return NoContent();
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(claim, out var id) ? id : null;
     }
 }

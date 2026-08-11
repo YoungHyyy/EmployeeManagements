@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
@@ -7,10 +8,12 @@ namespace EmployeeManagement.Application.Services;
 public class EmployeeService : IEmployeeService
 {
     private readonly IEmployeeRepository _repository;
+    private readonly IAuditLogService _auditLogService;
 
-    public EmployeeService(IEmployeeRepository repository)
+    public EmployeeService(IEmployeeRepository repository, IAuditLogService? auditLogService = null)
     {
         _repository = repository;
+        _auditLogService = auditLogService ?? new NoOpAuditLogService();
     }
 
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync(int page, int pageSize, string? search, int? departmentId, int? positionId, string? status)
@@ -25,7 +28,7 @@ public class EmployeeService : IEmployeeService
         return item == null ? null : Map(item);
     }
 
-    public async Task<EmployeeDto> CreateAsync(EmployeeDto request)
+    public async Task<EmployeeDto> CreateAsync(EmployeeDto request, int? actorUserId = null)
     {
         var entity = new Employee
         {
@@ -46,10 +49,22 @@ public class EmployeeService : IEmployeeService
 
         var id = await _repository.CreateAsync(entity);
         entity.Id = id;
+
+        await _auditLogService.WriteAsync(new AuditLogWriteRequest
+        {
+            UserId = actorUserId,
+            Action = AuditActions.Create,
+            Module = AuditModules.Employee,
+            EntityName = "Employee",
+            EntityId = id.ToString(),
+            RequestPath = "/api/Employees",
+            Details = $"EmployeeCode={entity.EmployeeCode}; Email={entity.Email}"
+        });
+
         return Map(entity);
     }
 
-    public async Task UpdateAsync(int id, EmployeeDto request)
+    public async Task UpdateAsync(int id, EmployeeDto request, int? actorUserId = null)
     {
         var existing = await _repository.GetByIdAsync(id);
         if (existing == null) return;
@@ -68,16 +83,46 @@ public class EmployeeService : IEmployeeService
         existing.IsActive = request.IsActive;
 
         await _repository.UpdateAsync(existing);
+
+        await _auditLogService.WriteAsync(new AuditLogWriteRequest
+        {
+            UserId = actorUserId,
+            Action = AuditActions.Update,
+            Module = AuditModules.Employee,
+            EntityName = "Employee",
+            EntityId = id.ToString(),
+            RequestPath = $"/api/Employees/{id}"
+        });
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(int id, int? actorUserId = null)
     {
         await _repository.SoftDeleteAsync(id);
+
+        await _auditLogService.WriteAsync(new AuditLogWriteRequest
+        {
+            UserId = actorUserId,
+            Action = AuditActions.SoftDelete,
+            Module = AuditModules.Employee,
+            EntityName = "Employee",
+            EntityId = id.ToString(),
+            RequestPath = $"/api/Employees/{id}"
+        });
     }
 
-    public async Task RestoreAsync(int id)
+    public async Task RestoreAsync(int id, int? actorUserId = null)
     {
         await _repository.RestoreAsync(id);
+
+        await _auditLogService.WriteAsync(new AuditLogWriteRequest
+        {
+            UserId = actorUserId,
+            Action = AuditActions.Restore,
+            Module = AuditModules.Employee,
+            EntityName = "Employee",
+            EntityId = id.ToString(),
+            RequestPath = $"/api/Employees/{id}/restore"
+        });
     }
 
     private static EmployeeDto Map(Employee employee) => new()
@@ -103,5 +148,12 @@ public class EmployeeService : IEmployeeService
         var date = DateTime.UtcNow.ToString("yyMMdd");
         var random = new Random().Next(1000, 9999);
         return $"EMP{date}{random}";
+    }
+
+    private sealed class NoOpAuditLogService : IAuditLogService
+    {
+        public Task WriteAsync(AuditLogWriteRequest request) => Task.CompletedTask;
+        public Task<AuditLogListResult> GetListAsync(AuditLogQuery query)
+            => Task.FromResult(new AuditLogListResult());
     }
 }

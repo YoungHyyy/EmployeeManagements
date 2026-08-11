@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IAvatarUploadService, AvatarUploadService>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
         return services;
     }
 }

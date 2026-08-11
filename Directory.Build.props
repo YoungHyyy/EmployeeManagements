@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Avoid long hangs checking vulnerability data when network is flaky -->
+    <NuGetAudit>false</NuGetAudit>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+  </PropertyGroup>
+</Project>

@@ -108,10 +108,10 @@ mysql -u emsuser -pYourPassword123 EmployeeManagementDb < database/seed-admin-us
 | Trường | Giá trị |
 |--------|---------|
 | Email | `admin@example.com` |
-| Password | `admin123` |
+| Password | `Admin123@` |
 | Role | `ADMIN` |
 
-> Nếu login fail (hash cũ lệch môi trường), đăng ký user thường rồi gán role `ADMIN` bằng SQL, hoặc tạo Admin qua API `POST /api/Users` khi đã login bằng Admin khác.
+> Nếu login fail: chạy lại `database/seed-admin-user.sql` (có UPDATE hash), hoặc tạo Admin qua `POST /api/Users` khi đã login bằng Admin khác.
 
 ### 4.4. Các bảng chính
 
@@ -124,9 +124,13 @@ mysql -u emsuser -pYourPassword123 EmployeeManagementDb < database/seed-admin-us
 
 ```bash
 # 1. Đảm bảo MySQL đã chạy và đã import schema/seed
-# 2. Chạy API
+# 2. Cách nhanh (khuyến nghị — tránh treo NuGet restore):
+./run-api.sh
+
+# Hoặc thủ công:
 cd src/Api
-dotnet run
+dotnet build --no-restore   # nếu đã restore trước đó
+dotnet run --no-build --urls http://127.0.0.1:5269
 ```
 
 - Swagger: **http://localhost:5269/swagger**
@@ -135,8 +139,12 @@ dotnet run
 Đổi cổng nếu cần:
 
 ```bash
-dotnet run --urls http://127.0.0.1:5270
+./run-api.sh http://127.0.0.1:5270
+# hoặc
+dotnet run --no-build --urls http://127.0.0.1:5270
 ```
+
+> **Lưu ý:** `dotnet run` / `dotnet build` có thể **treo** ở bước restore nếu mạng NuGet chậm, hoặc cổng 5269 đã có process. Dùng `./run-api.sh` hoặc `--no-restore` / `--no-build` như trên.
 
 ---
 
@@ -176,7 +184,7 @@ Compose tự mount `database/schema.sql` và `seed-admin-user.sql` khi khởi t�
 ```json
 {
   "email": "admin@example.com",
-  "password": "admin123"
+  "password": "Admin123@"
 }
 ```
 
@@ -278,6 +286,29 @@ CRUD chức vụ. Không xóa chức vụ còn nhân viên.
 
 `GET /` — Tổng NV, theo phòng ban/chức vụ, đang làm, nghỉ việc, mới trong tháng.
 
+### AuditLogs — `/api/AuditLogs` (Admin, chỉ đọc)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/` | Danh sách audit log (phân trang + filter) |
+
+**Query:** `page`, `pageSize`, `userId`, `action`, `module`, `from`, `to`
+
+**Action thường gặp:** `LOGIN_SUCCESS`, `LOGIN_FAILED`, `LOGOUT`, `REGISTER`, `CHANGE_PASSWORD`, `RESET_PASSWORD`, `CREATE`, `UPDATE`, `SOFT_DELETE`, `RESTORE`
+
+**Module:** `Auth`, `Employee`, `User`
+
+Ghi log tự động khi: đăng ký/đăng nhập (thành công & thất bại), logout, đổi/reset MK, CRUD Employee, tạo/sửa/xóa User.
+
+**Kiểm tra nhanh sau khi thao tác API:**
+
+```sql
+SELECT Id, UserId, Action, Module, EntityName, EntityId, CreatedAt
+FROM AuditLogs
+ORDER BY Id DESC
+LIMIT 20;
+```
+
 ### Khác
 
 - `GET /health` — Health check  
@@ -378,6 +409,7 @@ Import Postman: set `baseUrl` (vd. `http://localhost:5269`) và `accessToken` sa
 - [x] Dashboard thống kê  
 - [x] Search / Filter / Pagination nhân viên  
 - [x] API response wrapper  
+- [x] AuditLogs (ghi Auth/Employee/User + API Admin xem)  
 
 ### Nộp bài
 
@@ -412,12 +444,35 @@ lsof -i :5269
 kill <pid>
 ```
 
+**`dotnet run` / build bị treo**
+
+Nguyên nhân thường gặp:
+1. **NuGet restore** chờ nuget.org / vulnerability check  
+2. **Cổng 5269 đã có API** đang chạy  
+3. Nhiều `dotnet`/MSBuild chạy song song (VS Code + terminal)
+
+```bash
+# Kiểm tra API đã chạy chưa
+curl http://127.0.0.1:5269/health
+
+# Nếu đã 200 → mở Swagger, không cần run lại:
+# http://localhost:5269/swagger
+
+# Build không restore (nhanh):
+cd /home/tts/EmployeeManagement
+dotnet build src/Api/EmployeeManagement.Api.csproj --no-restore
+
+# Chạy không build/restore:
+cd src/Api && dotnet run --no-build --no-restore --urls http://127.0.0.1:5269
+
+# Hoặc script:
+./run-api.sh
+```
+
 **Lỗi restore NuGet (mạng)**
 
 ```bash
 dotnet restore --ignore-failed-sources
-# hoặc dùng cache local:
-dotnet restore --source ~/.nuget/packages
 ```
 
 **Lỗi kết nối MySQL**

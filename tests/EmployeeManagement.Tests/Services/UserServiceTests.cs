@@ -28,7 +28,7 @@ public class UserServiceTests
         roleRepo.Setup(x => x.GetRoleIdByCodeAsync("ADMIN")).ReturnsAsync(1);
         roleRepo.Setup(x => x.AssignRoleAsync(10, 1)).Returns(Task.CompletedTask);
 
-        var service = new UserService(userRepo.Object, roleRepo.Object);
+        var service = new UserService(userRepo.Object, roleRepo.Object, Mock.Of<IAuditLogService>());
 
         var result = await service.CreateAsync(new CreateUserRequest
         {

@@ -86,7 +86,11 @@ public static class ServiceCollectionExtensions
             });
         }
 
-        app.UseHttpsRedirection();
+        // Only redirect HTTPS when not pure-HTTP local dev (avoids Swagger break on :5269)
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHttpsRedirection();
+        }
 
         // Serve uploaded avatars under /uploads/*
         var wwwroot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");

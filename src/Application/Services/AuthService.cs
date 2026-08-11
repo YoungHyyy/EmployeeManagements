@@ -1,7 +1,6 @@
-using System;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
@@ -16,6 +15,7 @@ namespace EmployeeManagement.Application.Services
         private readonly IRoleRepository _roleRepository;
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly ITokenService _tokenService;
+        private readonly IAuditLogService _auditLogService;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
@@ -23,12 +23,14 @@ namespace EmployeeManagement.Application.Services
             IRoleRepository roleRepository,
             IRefreshTokenRepository refreshTokenRepository,
             ITokenService tokenService,
+            IAuditLogService? auditLogService = null,
             ILogger<AuthService>? logger = null)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
             _refreshTokenRepository = refreshTokenRepository;
             _tokenService = tokenService;
+            _auditLogService = auditLogService ?? new NoOpAuditLogService();
             _logger = logger ?? NullLogger<AuthService>.Instance;
         }
 
@@ -52,7 +54,6 @@ namespace EmployeeManagement.Application.Services
             };
             var userId = await _userRepository.CreateAsync(user);
 
-            // Public register always assigns EMPLOYEE. Role must not come from client input.
             const string roleCode = "EMPLOYEE";
             var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
             if (roleId.HasValue)
@@ -68,13 +69,31 @@ namespace EmployeeManagement.Application.Services
             {
                 UserId = userId,
                 TokenHash = refreshTokenHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),// Set the expiration to 7 days from now
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
                 IsUsed = false,
                 IsRevoked = false,
                 CreatedAt = DateTime.UtcNow
             });
 
-            return new AuthResponse { Success = true, Message = "Đăng ký thành công", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = userId,
+                Action = AuditActions.Register,
+                Module = AuditModules.Auth,
+                EntityName = "User",
+                EntityId = userId.ToString(),
+                RequestPath = "/api/Auth/register",
+                Details = $"Email={request.Email}"
+            });
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Đăng ký thành công",
+                AccessToken = accessToken,
+                RefreshToken = rawRefreshToken,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds()
+            };
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -83,12 +102,31 @@ namespace EmployeeManagement.Application.Services
             if (user == null)
             {
                 _logger.LogWarning("Login failed for email {Email}: user not found", request.Email);
+                await _auditLogService.WriteAsync(new AuditLogWriteRequest
+                {
+                    UserId = null,
+                    Action = AuditActions.LoginFailed,
+                    Module = AuditModules.Auth,
+                    EntityName = "User",
+                    RequestPath = "/api/Auth/login",
+                    Details = $"Email={request.Email}; Reason=UserNotFound"
+                });
                 return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
             }
 
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 _logger.LogWarning("Login failed for email {Email}: invalid password", request.Email);
+                await _auditLogService.WriteAsync(new AuditLogWriteRequest
+                {
+                    UserId = user.Id,
+                    Action = AuditActions.LoginFailed,
+                    Module = AuditModules.Auth,
+                    EntityName = "User",
+                    EntityId = user.Id.ToString(),
+                    RequestPath = "/api/Auth/login",
+                    Details = $"Email={request.Email}; Reason=InvalidPassword"
+                });
                 return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
             }
 
@@ -108,7 +146,26 @@ namespace EmployeeManagement.Application.Services
             });
 
             _logger.LogInformation("Login succeeded for email {Email} with role {Role}", user.Email, roleCode);
-            return new AuthResponse { Success = true, Message = "Đăng nhập thành công", AccessToken = accessToken, RefreshToken = rawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = user.Id,
+                Action = AuditActions.LoginSuccess,
+                Module = AuditModules.Auth,
+                EntityName = "User",
+                EntityId = user.Id.ToString(),
+                RequestPath = "/api/Auth/login",
+                Details = $"Email={user.Email}; Role={roleCode}"
+            });
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Đăng nhập thành công",
+                AccessToken = accessToken,
+                RefreshToken = rawRefreshToken,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds()
+            };
         }
 
         public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
@@ -145,16 +202,37 @@ namespace EmployeeManagement.Application.Services
             var roleCode = await GetUserRoleCodeAsync(user.Id);
             var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roleCode);
 
-            return new AuthResponse { Success = true, Message = "Làm mới token thành công", AccessToken = accessToken, RefreshToken = newRawRefreshToken, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds() };
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Làm mới token thành công",
+                AccessToken = accessToken,
+                RefreshToken = newRawRefreshToken,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds()
+            };
         }
 
         public async Task<AuthResponse> LogoutAsync(string refreshToken)
         {
+            int? userId = null;
             if (!string.IsNullOrWhiteSpace(refreshToken))
             {
                 var tokenHash = HashToken(refreshToken);
+                var stored = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash);
+                userId = stored?.UserId;
                 await _refreshTokenRepository.RevokeAsync(tokenHash);
             }
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = userId,
+                Action = AuditActions.Logout,
+                Module = AuditModules.Auth,
+                EntityName = "User",
+                EntityId = userId?.ToString(),
+                RequestPath = "/api/Auth/logout"
+            });
+
             return new AuthResponse { Success = true, Message = "Đăng xuất thành công" };
         }
 
@@ -170,9 +248,18 @@ namespace EmployeeManagement.Application.Services
             if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
                 return new AuthResponse { Success = false, Message = "Mật khẩu hiện tại không đúng" };
 
-            var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.PasswordHash = newHash;
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             await _userRepository.UpdateAsync(user);
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = userId,
+                Action = AuditActions.ChangePassword,
+                Module = AuditModules.Auth,
+                EntityName = "User",
+                EntityId = userId.ToString(),
+                RequestPath = "/api/Auth/change-password"
+            });
 
             return new AuthResponse { Success = true, Message = "Đổi mật khẩu thành công" };
         }
@@ -187,6 +274,18 @@ namespace EmployeeManagement.Application.Services
             user.OtpCode = otp;
             user.OtpExpiration = DateTime.UtcNow.AddMinutes(10);
             await _userRepository.UpdateAsync(user);
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = user.Id,
+                Action = AuditActions.ForgotPassword,
+                Module = AuditModules.Auth,
+                EntityName = "User",
+                EntityId = user.Id.ToString(),
+                RequestPath = "/api/Auth/forgot-password",
+                Details = $"Email={request.Email}"
+            });
+
             return new AuthResponse { Success = true, Message = $"Mã OTP đã được tạo (giả lập): {otp}" };
         }
 
@@ -208,11 +307,21 @@ namespace EmployeeManagement.Application.Services
             if (!otpExpiration.HasValue || otpExpiration.Value < DateTime.UtcNow)
                 return new AuthResponse { Success = false, Message = "Mã OTP đã hết hạn" };
 
-            var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            user.PasswordHash = newHash;
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.OtpCode = null;
             user.OtpExpiration = null;
             await _userRepository.UpdateAsync(user);
+
+            await _auditLogService.WriteAsync(new AuditLogWriteRequest
+            {
+                UserId = user.Id,
+                Action = AuditActions.ResetPassword,
+                Module = AuditModules.Auth,
+                EntityName = "User",
+                EntityId = user.Id.ToString(),
+                RequestPath = "/api/Auth/reset-password",
+                Details = $"Email={request.Email}"
+            });
 
             return new AuthResponse { Success = true, Message = "Đặt lại mật khẩu thành công" };
         }
@@ -228,6 +337,14 @@ namespace EmployeeManagement.Application.Services
             using var sha256 = SHA256.Create();
             var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(rawToken));
             return Convert.ToHexString(bytes);
+        }
+
+        /// <summary>Used when tests construct AuthService without audit DI.</summary>
+        private sealed class NoOpAuditLogService : IAuditLogService
+        {
+            public Task WriteAsync(AuditLogWriteRequest request) => Task.CompletedTask;
+            public Task<AuditLogListResult> GetListAsync(AuditLogQuery query)
+                => Task.FromResult(new AuditLogListResult());
         }
     }
 }
