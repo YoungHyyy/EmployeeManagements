@@ -4,6 +4,7 @@ using EmployeeManagement.Api.Middleware;
 using EmployeeManagement.Api.Swagger;
 using EmployeeManagement.Application;
 using EmployeeManagement.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -17,9 +18,12 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddApiLayer(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<BindEmployeeIdFromRouteFilter>();
         services.AddControllers(options =>
         {
             options.Filters.Add<ApiResponseFilter>();
+            // Bind route {id} → EmployeeDto.Id before FluentValidation (email unique exclude)
+            options.Filters.AddService<BindEmployeeIdFromRouteFilter>();
         });
 
         var jwtSettings = configuration.GetSection("Jwt");

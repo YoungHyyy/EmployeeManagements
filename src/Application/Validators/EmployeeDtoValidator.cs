@@ -19,7 +19,7 @@ public class EmployeeDtoValidator : AbstractValidator<EmployeeDto>
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email là bắt buộc")
             .EmailAddress().WithMessage("Email không đúng định dạng")
-            .MustAsync(async (email, cancellation) => !await _employeeRepository.ExistsByEmailAsync(email))
+            .MustAsync(BeUniqueEmailAsync)
             .WithMessage("Email đã tồn tại trong hệ thống");
 
         RuleFor(x => x.PhoneNumber)
@@ -43,5 +43,16 @@ public class EmployeeDtoValidator : AbstractValidator<EmployeeDto>
         RuleFor(x => x.Status)
             .Must(s => string.IsNullOrWhiteSpace(s) || new[] { "Working", "Probation", "Resigned", "OnLeave" }.Contains(s))
             .WithMessage("Trạng thái làm việc không hợp lệ");
+    }
+
+    /// <summary>
+    /// Create: Id = 0 → email must not exist.
+    /// Update: Id > 0 → email may match current employee (exclude Id).
+    /// </summary>
+    private async Task<bool> BeUniqueEmailAsync(EmployeeDto dto, string email, CancellationToken cancellation)
+    {
+        var excludeId = dto.Id > 0 ? dto.Id : (int?)null;
+        var exists = await _employeeRepository.ExistsByEmailAsync(email, excludeId);
+        return !exists;
     }
 }

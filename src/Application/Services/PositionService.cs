@@ -59,8 +59,13 @@ public class PositionService : IPositionService
 
     public async Task DeleteAsync(int id)
     {
-        var linkedEmployees = await _employeeRepository.ListAsync(1, 1, null, null, id, null);
-        if (linkedEmployees.Any())
+        var (linkedEmployees, total) = await _employeeRepository.ListAsync(new DTOs.EmployeeListQuery
+        {
+            Page = 1,
+            PageSize = 1,
+            PositionId = id
+        });
+        if (total > 0 || linkedEmployees.Any())
         {
             throw new InvalidOperationException("Không thể xóa chức vụ khi vẫn còn nhân viên liên kết");
         }

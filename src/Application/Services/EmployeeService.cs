@@ -16,10 +16,20 @@ public class EmployeeService : IEmployeeService
         _auditLogService = auditLogService ?? new NoOpAuditLogService();
     }
 
-    public async Task<IEnumerable<EmployeeDto>> GetAllAsync(int page, int pageSize, string? search, int? departmentId, int? positionId, string? status)
+    public async Task<EmployeeListResult> GetAllAsync(EmployeeListQuery query)
     {
-        var items = await _repository.ListAsync(page, pageSize, search, departmentId, positionId, status);
-        return items.Select(Map);
+        query.Page = query.Page < 1 ? 1 : query.Page;
+        query.PageSize = query.PageSize is < 1 or > 100 ? 20 : query.PageSize;
+
+        var (items, total) = await _repository.ListAsync(query);
+
+        return new EmployeeListResult
+        {
+            Items = items.Select(Map).ToList(),
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalCount = total
+        };
     }
 
     public async Task<EmployeeDto?> GetByIdAsync(int id)
@@ -66,8 +76,14 @@ public class EmployeeService : IEmployeeService
 
     public async Task UpdateAsync(int id, EmployeeDto request, int? actorUserId = null)
     {
-        var existing = await _repository.GetByIdAsync(id);
-        if (existing == null) return;
+        var existing = await _repository.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy nhân viên");
+
+        // Defense-in-depth: email unique excluding current employee
+        if (await _repository.ExistsByEmailAsync(request.Email, excludeEmployeeId: id))
+        {
+            throw new InvalidOperationException("Email đã tồn tại trong hệ thống");
+        }
 
         existing.FullName = request.FullName;
         existing.Email = request.Email;

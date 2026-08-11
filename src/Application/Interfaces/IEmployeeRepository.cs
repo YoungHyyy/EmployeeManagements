@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Domain.Entities;
 
 namespace EmployeeManagement.Application.Interfaces;
@@ -9,6 +10,6 @@ public interface IEmployeeRepository
     Task SoftDeleteAsync(int id);
     Task RestoreAsync(int id);
     Task<Employee?> GetByIdAsync(int id);
-    Task<IEnumerable<Employee>> ListAsync(int page, int pageSize, string? search = null, int? departmentId = null, int? positionId = null, string? status = null);
+    Task<(IEnumerable<Employee> Items, int TotalCount)> ListAsync(EmployeeListQuery query);
     Task<bool> ExistsByEmailAsync(string email, int? excludeEmployeeId = null);
 }

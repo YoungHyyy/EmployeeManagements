@@ -252,14 +252,34 @@ Base path: `/api`
 
 | Method | Path | Mô tả |
 |--------|------|--------|
-| GET | `/` | Danh sách + search/filter/pagination |
+| GET | `/` | Danh sách + search/filter/sort/pagination |
 | GET | `/{id}` | Chi tiết |
 | POST | `/` | Thêm (tự sinh `EmployeeCode`) |
 | PUT | `/{id}` | Cập nhật |
 | DELETE | `/{id}` | Soft delete |
 | PATCH | `/{id}/restore` | Khôi phục |
 
-**Query list:** `page`, `pageSize`, `search` (tên/email/phone), `departmentId`, `positionId`, `status`
+**Query list (`GET /api/Employees`):**
+
+| Tham số | Mô tả | Ví dụ |
+|---------|--------|--------|
+| `page` | Trang (mặc định 1) | `1` |
+| `pageSize` | Số bản ghi/trang (max 100) | `20` |
+| `search` | Tìm theo **tên HOẶC email HOẶC SĐT** | `nguyen` |
+| `searchName` | Tìm theo họ tên | `Nguyen Van A` |
+| `searchEmail` | Tìm theo email | `a@mail.com` |
+| `searchPhone` | Tìm theo SĐT | `0912` |
+| `departmentId` | Lọc phòng ban | `1` |
+| `positionId` | Lọc chức vụ | `2` |
+| `status` | Lọc trạng thái | `Working` |
+| `sortBy` | `fullName` \| `createdAt` \| `hireDate` | `fullName` |
+| `sortDir` | `asc` \| `desc` | `asc` |
+
+```http
+GET /api/Employees?search=nguyen&departmentId=1&status=Working&sortBy=fullName&sortDir=asc&page=1&pageSize=10
+```
+
+Response `data`: `{ items, page, pageSize, totalCount, totalPages }`
 
 ### Departments — `/api/Departments`
 
