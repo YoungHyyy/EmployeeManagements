@@ -119,6 +119,7 @@ public static class ServiceCollectionExtensions
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", SwaggerConfig.GetInfo());
+            c.SchemaFilter<Swagger.ReadOnlyIdSchemaFilter>();
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
