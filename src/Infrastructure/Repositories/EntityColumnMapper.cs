@@ -20,7 +20,7 @@ public static class EntityColumnMapper
 
     /// <summary>Chỉ bỏ Id (auto increment) — dùng AuditLog append-only.</summary>
     public static readonly HashSet<string> IdentityOnlySystemColumns = new(StringComparer.OrdinalIgnoreCase)
-    {
+{
         "Id"
     };
 

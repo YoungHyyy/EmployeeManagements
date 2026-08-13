@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
@@ -29,6 +30,8 @@ public class DepartmentService : IDepartmentService
 
     public async Task<DepartmentDto> CreateAsync(DepartmentDto request)
     {
+        await EnsureUniqueAsync(request.Code, request.Name);
+
         var entity = new Department
         {
             Code = request.Code,
@@ -45,7 +48,9 @@ public class DepartmentService : IDepartmentService
     public async Task UpdateAsync(int id, DepartmentDto request)
     {
         var existing = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException("Không tìm thấy phòng ban");
+            ?? throw new KeyNotFoundException(ApiMessages.DepartmentNotFound);
+
+        await EnsureUniqueAsync(request.Code, request.Name, excludeId: id);
 
         existing.Code = request.Code;
         existing.Name = request.Name;
@@ -55,10 +60,23 @@ public class DepartmentService : IDepartmentService
         await _repository.UpdateAsync(existing);
     }
 
+    private async Task EnsureUniqueAsync(string code, string name, int? excludeId = null)
+    {
+        if (await _repository.ExistsByCodeAsync(code, excludeId))
+        {
+            throw new InvalidOperationException(ApiMessages.DepartmentCodeExists(code));
+        }
+
+        if (await _repository.ExistsByNameAsync(name, excludeId))
+        {
+            throw new InvalidOperationException(ApiMessages.DepartmentNameExists(name));
+        }
+    }
+
     public async Task DeleteAsync(int id)
     {
         _ = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException("Không tìm thấy phòng ban");
+            ?? throw new KeyNotFoundException(ApiMessages.DepartmentNotFound);
 
         var (linkedEmployees, total) = await _employeeRepository.ListAsync(new EmployeeListQuery
         {
@@ -68,7 +86,7 @@ public class DepartmentService : IDepartmentService
         });
         if (total > 0 || linkedEmployees.Any())
         {
-            throw new InvalidOperationException("Không thể xóa phòng ban khi vẫn còn nhân viên liên kết");
+            throw new InvalidOperationException(ApiMessages.DepartmentHasEmployees);
         }
 
         await _repository.SoftDeleteAsync(id);

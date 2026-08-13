@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
@@ -29,6 +30,8 @@ public class PositionService : IPositionService
 
     public async Task<PositionDto> CreateAsync(PositionDto request)
     {
+        await EnsureUniqueAsync(request.Code, request.Name);
+
         var entity = new Position
         {
             Code = request.Code,
@@ -46,7 +49,9 @@ public class PositionService : IPositionService
     public async Task UpdateAsync(int id, PositionDto request)
     {
         var existing = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException("Không tìm thấy chức vụ");
+            ?? throw new KeyNotFoundException(ApiMessages.PositionNotFound);
+
+        await EnsureUniqueAsync(request.Code, request.Name, excludeId: id);
 
         existing.Code = request.Code;
         existing.Name = request.Name;
@@ -57,10 +62,23 @@ public class PositionService : IPositionService
         await _repository.UpdateAsync(existing);
     }
 
+    private async Task EnsureUniqueAsync(string code, string name, int? excludeId = null)
+    {
+        if (await _repository.ExistsByCodeAsync(code, excludeId))
+        {
+            throw new InvalidOperationException(ApiMessages.PositionCodeExists(code));
+        }
+
+        if (await _repository.ExistsByNameAsync(name, excludeId))
+        {
+            throw new InvalidOperationException(ApiMessages.PositionNameExists(name));
+        }
+    }
+
     public async Task DeleteAsync(int id)
     {
         _ = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException("Không tìm thấy chức vụ");
+            ?? throw new KeyNotFoundException(ApiMessages.PositionNotFound);
 
         var (linkedEmployees, total) = await _employeeRepository.ListAsync(new EmployeeListQuery
         {
@@ -70,7 +88,7 @@ public class PositionService : IPositionService
         });
         if (total > 0 || linkedEmployees.Any())
         {
-            throw new InvalidOperationException("Không thể xóa chức vụ khi vẫn còn nhân viên liên kết");
+            throw new InvalidOperationException(ApiMessages.PositionHasEmployees);
         }
 
         await _repository.SoftDeleteAsync(id);
