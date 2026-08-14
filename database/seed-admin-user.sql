@@ -3,6 +3,13 @@
 
 USE EmployeeManagementDb;
 
+-- Default catalog for public register (Employee profile)
+INSERT IGNORE INTO Departments (Code, Name, Description, IsActive, IsDeleted)
+VALUES ('UNASSIGNED', 'Chưa phân bổ', 'Phòng ban mặc định khi đăng ký tài khoản', 1, 0);
+
+INSERT IGNORE INTO Positions (Code, Name, Description, Level, IsActive, IsDeleted)
+VALUES ('STAFF', 'Nhân viên', 'Chức vụ mặc định khi đăng ký tài khoản', 4, 1, 0);
+
 -- 1. Insert ADMIN role if not exists
 INSERT IGNORE INTO Roles (Code, Name, Description, IsActive, IsDeleted)
 VALUES ('ADMIN', 'Administrator', 'Admin role with full access', 1, 0);

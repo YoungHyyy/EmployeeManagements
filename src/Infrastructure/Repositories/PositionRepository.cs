@@ -10,6 +10,9 @@ public class PositionRepository : GenericRepository<Position>, IPositionReposito
     {
     }
 
+    public Task<Position?> GetByCodeAsync(string code)
+        => GetByFieldAsync(nameof(Position.Code), code);
+
     public Task<bool> ExistsByCodeAsync(string code, int? excludeId = null)
         => ExistsByFieldAsync(nameof(Position.Code), code, excludeId);
 

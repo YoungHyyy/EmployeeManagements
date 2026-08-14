@@ -108,7 +108,7 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
 ### 4.3 `DepartmentsController.cs`
 * **Đường dẫn gốc:** `/api/departments`
 * **Nhiệm vụ:** Quản lý danh mục Phòng ban.
-* **Quyền truy cập:** `EmployeeOrAdmin` cho `GET`, `AdminOnly` cho `POST`, `PUT`, `DELETE`.
+* **Quyền truy cập:** `AdminOnly` cho toàn bộ CRUD. Employee xem tên phòng ban trên `GET /api/profile`.
 * **Danh sách Endpoints:**
   - `GET /api/departments`: Lấy danh sách phòng ban (phân trang).
   - `GET /api/departments/{id}`: Lấy chi tiết phòng ban theo ID.
@@ -119,7 +119,7 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
 ### 4.4 `PositionsController.cs`
 * **Đường dẫn gốc:** `/api/positions`
 * **Nhiệm vụ:** Quản lý danh mục Chức vụ.
-* **Quyền truy cập:** `EmployeeOrAdmin` cho `GET`, `AdminOnly` cho `POST`, `PUT`, `DELETE`.
+* **Quyền truy cập:** `AdminOnly` cho toàn bộ CRUD. Employee xem tên chức vụ trên `GET /api/profile`.
 * **Danh sách Endpoints:**
   - `GET /api/positions`: Lấy danh sách chức vụ (phân trang).
   - `GET /api/positions/{id}`: Lấy chi tiết chức vụ theo ID.

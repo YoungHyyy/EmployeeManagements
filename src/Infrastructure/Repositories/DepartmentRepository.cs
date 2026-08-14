@@ -10,6 +10,9 @@ public class DepartmentRepository : GenericRepository<Department>, IDepartmentRe
     {
     }
 
+    public Task<Department?> GetByCodeAsync(string code)
+        => GetByFieldAsync(nameof(Department.Code), code);
+
     public Task<bool> ExistsByCodeAsync(string code, int? excludeId = null)
         => ExistsByFieldAsync(nameof(Department.Code), code, excludeId);
 

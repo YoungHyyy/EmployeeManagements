@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Application.Services;
@@ -24,7 +25,7 @@ public class AuthServiceTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:Key"] = "super-secret-key-123456",
+                ["Jwt:Key"] = "super-secret-key-123456-super-secret-key-123456",
                 ["Jwt:Issuer"] = "EmployeeManagement",
                 ["Jwt:Audience"] = "EmployeeManagementClient",
                 ["Jwt:ExpiresInMinutes"] = "60"
@@ -252,10 +253,152 @@ public class AuthServiceTests
         refreshTokenRepository.Verify(x => x.RevokeAllUserTokensAsync(4), Times.Once);
     }
 
+    [Fact]
+    public async Task RegisterAsync_ShouldCreateEmployeeProfile_WithDefaultDepartmentAndPosition()
+    {
+        var userRepository = new Mock<IUserRepository>();
+        userRepository.Setup(x => x.ExistsByEmailAsync("new@mail.com", null)).ReturnsAsync(false);
+        userRepository.Setup(x => x.CreateWithRoleAsync(It.IsAny<User>(), 2)).ReturnsAsync(11);
+
+        var roleRepository = new Mock<IRoleRepository>();
+        roleRepository.Setup(x => x.GetRoleIdByCodeAsync("EMPLOYEE")).ReturnsAsync(2);
+
+        var employeeRepository = new Mock<IEmployeeRepository>();
+        employeeRepository.Setup(x => x.GetByEmailAsync("new@mail.com")).ReturnsAsync((Employee?)null);
+        employeeRepository.Setup(x => x.GetByUserIdAsync(11)).ReturnsAsync((Employee?)null);
+        employeeRepository.Setup(x => x.ExistsByEmployeeCodeAsync(It.IsAny<string>())).ReturnsAsync(false);
+        employeeRepository.Setup(x => x.CreateAsync(It.IsAny<Employee>())).ReturnsAsync(20);
+
+        var departments = new Mock<IDepartmentRepository>();
+        departments.Setup(x => x.GetByCodeAsync(DefaultCatalog.DepartmentCode))
+            .ReturnsAsync(new Department { Id = 8, Code = DefaultCatalog.DepartmentCode, Name = "Chưa phân bổ" });
+
+        var positions = new Mock<IPositionRepository>();
+        positions.Setup(x => x.GetByCodeAsync(DefaultCatalog.PositionCode))
+            .ReturnsAsync(new Position { Id = 9, Code = DefaultCatalog.PositionCode, Name = "Nhân viên" });
+
+        var refreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        var service = CreateService(
+            userRepository.Object,
+            refreshTokenRepository.Object,
+            roleRepository.Object,
+            employeeRepository.Object,
+            departments.Object,
+            positions.Object);
+
+        var result = await service.RegisterAsync(new RegisterRequest
+        {
+            FullName = "Nguyen Van B",
+            Email = "new@mail.com",
+            PhoneNumber = "0901234567",
+            Password = "Password123!",
+            ConfirmPassword = "Password123!"
+        });
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        employeeRepository.Verify(x => x.CreateAsync(It.Is<Employee>(e =>
+            e.UserId == 11 &&
+            e.Email == "new@mail.com" &&
+            e.FullName == "Nguyen Van B" &&
+            e.DepartmentId == 8 &&
+            e.PositionId == 9 &&
+            e.Status == "Working" &&
+            e.EmployeeCode.StartsWith("EMP"))), Times.Once);
+        employeeRepository.Verify(x => x.LinkUserAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldLinkExistingEmployee_InsteadOfCreatingDuplicate()
+    {
+        var userRepository = new Mock<IUserRepository>();
+        userRepository.Setup(x => x.ExistsByEmailAsync("nv.a@mail.com", null)).ReturnsAsync(false);
+        userRepository.Setup(x => x.CreateWithRoleAsync(It.IsAny<User>(), 2)).ReturnsAsync(11);
+
+        var roleRepository = new Mock<IRoleRepository>();
+        roleRepository.Setup(x => x.GetRoleIdByCodeAsync("EMPLOYEE")).ReturnsAsync(2);
+
+        var employeeRepository = new Mock<IEmployeeRepository>();
+        employeeRepository.Setup(x => x.GetByUserIdAsync(11)).ReturnsAsync((Employee?)null);
+        employeeRepository.Setup(x => x.GetByEmailAsync("nv.a@mail.com")).ReturnsAsync(new Employee
+        {
+            Id = 30,
+            Email = "nv.a@mail.com",
+            UserId = null
+        });
+
+        var departments = new Mock<IDepartmentRepository>();
+        departments.Setup(x => x.GetByCodeAsync(DefaultCatalog.DepartmentCode))
+            .ReturnsAsync(new Department { Id = 8, Code = DefaultCatalog.DepartmentCode });
+        var positions = new Mock<IPositionRepository>();
+        positions.Setup(x => x.GetByCodeAsync(DefaultCatalog.PositionCode))
+            .ReturnsAsync(new Position { Id = 9, Code = DefaultCatalog.PositionCode });
+
+        var service = CreateService(
+            userRepository.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            roleRepository.Object,
+            employeeRepository.Object,
+            departments.Object,
+            positions.Object);
+
+        var result = await service.RegisterAsync(new RegisterRequest
+        {
+            FullName = "Nguyen Van A",
+            Email = "nv.a@mail.com",
+            PhoneNumber = "0901234567",
+            Password = "Password123!",
+            ConfirmPassword = "Password123!"
+        });
+
+        result.Success.Should().BeTrue();
+        employeeRepository.Verify(x => x.LinkUserAsync(30, 11), Times.Once);
+        employeeRepository.Verify(x => x.CreateAsync(It.IsAny<Employee>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldFail_WhenDefaultCatalogMissing()
+    {
+        var userRepository = new Mock<IUserRepository>();
+        userRepository.Setup(x => x.ExistsByEmailAsync("new@mail.com", null)).ReturnsAsync(false);
+
+        var roleRepository = new Mock<IRoleRepository>();
+        roleRepository.Setup(x => x.GetRoleIdByCodeAsync("EMPLOYEE")).ReturnsAsync(2);
+
+        var departments = new Mock<IDepartmentRepository>();
+        departments.Setup(x => x.GetByCodeAsync(DefaultCatalog.DepartmentCode)).ReturnsAsync((Department?)null);
+        var positions = new Mock<IPositionRepository>();
+        positions.Setup(x => x.GetByCodeAsync(DefaultCatalog.PositionCode)).ReturnsAsync((Position?)null);
+
+        var service = CreateService(
+            userRepository.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            roleRepository.Object,
+            new Mock<IEmployeeRepository>().Object,
+            departments.Object,
+            positions.Object);
+
+        var result = await service.RegisterAsync(new RegisterRequest
+        {
+            FullName = "Nguyen Van B",
+            Email = "new@mail.com",
+            PhoneNumber = "0901234567",
+            Password = "Password123!",
+            ConfirmPassword = "Password123!"
+        });
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("UNASSIGNED");
+        userRepository.Verify(x => x.CreateWithRoleAsync(It.IsAny<User>(), It.IsAny<int>()), Times.Never);
+    }
+
     private static AuthService CreateService(
         IUserRepository? userRepository = null,
         IRefreshTokenRepository? refreshTokenRepository = null,
-        IRoleRepository? roleRepository = null)
+        IRoleRepository? roleRepository = null,
+        IEmployeeRepository? employeeRepository = null,
+        IDepartmentRepository? departmentRepository = null,
+        IPositionRepository? positionRepository = null)
     {
         userRepository ??= new Mock<IUserRepository>().Object;
         roleRepository ??= new Mock<IRoleRepository>().Object;
@@ -264,7 +407,7 @@ public class AuthServiceTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:Key"] = "super-secret-key-123456",
+                ["Jwt:Key"] = "super-secret-key-123456-super-secret-key-123456",
                 ["Jwt:Issuer"] = "EmployeeManagement",
                 ["Jwt:Audience"] = "EmployeeManagementClient",
                 ["Jwt:ExpiresInMinutes"] = "60"
@@ -272,6 +415,13 @@ public class AuthServiceTests
             .Build();
 
         var tokenService = new TokenService(configuration);
-        return new AuthService(userRepository, roleRepository, refreshTokenRepository, tokenService);
+        return new AuthService(
+            userRepository,
+            roleRepository,
+            refreshTokenRepository,
+            tokenService,
+            employeeRepository: employeeRepository,
+            departmentRepository: departmentRepository,
+            positionRepository: positionRepository);
     }
 }

@@ -17,6 +17,8 @@ namespace EmployeeManagement.Application.Services
         private readonly ITokenService _tokenService;
         private readonly IAuditLogService _auditLogService;
         private readonly IEmployeeRepository? _employeeRepository;
+        private readonly IDepartmentRepository? _departmentRepository;
+        private readonly IPositionRepository? _positionRepository;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
@@ -26,7 +28,9 @@ namespace EmployeeManagement.Application.Services
             ITokenService tokenService,
             IAuditLogService? auditLogService = null,
             ILogger<AuthService>? logger = null,
-            IEmployeeRepository? employeeRepository = null)
+            IEmployeeRepository? employeeRepository = null,
+            IDepartmentRepository? departmentRepository = null,
+            IPositionRepository? positionRepository = null)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
@@ -35,6 +39,8 @@ namespace EmployeeManagement.Application.Services
             _auditLogService = auditLogService ?? new NoOpAuditLogService();
             _logger = logger ?? NullLogger<AuthService>.Instance;
             _employeeRepository = employeeRepository;
+            _departmentRepository = departmentRepository;
+            _positionRepository = positionRepository;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -52,6 +58,12 @@ namespace EmployeeManagement.Application.Services
                 return new AuthResponse { Success = false, Message = ApiMessages.RoleNotFound(roleCode) };
             }
 
+            var defaults = await ResolveDefaultCatalogAsync();
+            if (defaults.Error is { } catalogError)
+            {
+                return new AuthResponse { Success = false, Message = catalogError };
+            }
+
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             var user = new User
             {
@@ -62,7 +74,7 @@ namespace EmployeeManagement.Application.Services
                 IsActive = true
             };
             var userId = await _userRepository.CreateWithRoleAsync(user, roleId.Value);
-            await TryLinkEmployeeByEmailAsync(userId, request.Email);
+            await EnsureEmployeeProfileAsync(userId, request, defaults.Department, defaults.Position);
 
             var tokens = await IssueTokensAsync(userId, request.Email, roleCode);
 
@@ -329,26 +341,88 @@ namespace EmployeeManagement.Application.Services
             };
         }
 
-        private async Task TryLinkEmployeeByEmailAsync(int userId, string email)
+        private async Task<(Department? Department, Position? Position, string? Error)> ResolveDefaultCatalogAsync()
+        {
+            if (_employeeRepository == null)
+            {
+                return (null, null, null);
+            }
+
+            if (_departmentRepository == null || _positionRepository == null)
+            {
+                return (null, null, ApiMessages.DefaultCatalogMissing);
+            }
+
+            var department = await _departmentRepository.GetByCodeAsync(DefaultCatalog.DepartmentCode);
+            var position = await _positionRepository.GetByCodeAsync(DefaultCatalog.PositionCode);
+            if (department == null || position == null)
+            {
+                return (null, null, ApiMessages.DefaultCatalogMissing);
+            }
+
+            return (department, position, null);
+        }
+
+        private async Task EnsureEmployeeProfileAsync(
+            int userId,
+            RegisterRequest request,
+            Department? defaultDepartment,
+            Position? defaultPosition)
         {
             if (_employeeRepository == null)
             {
                 return;
             }
 
-            var employee = await _employeeRepository.GetByEmailAsync(email);
-            if (employee == null || employee.UserId.HasValue)
+            var existing = await _employeeRepository.GetByUserIdAsync(userId)
+                           ?? await _employeeRepository.GetByEmailAsync(request.Email);
+
+            if (existing != null)
             {
+                if (!existing.UserId.HasValue)
+                {
+                    await _employeeRepository.LinkUserAsync(existing.Id, userId);
+                }
+
                 return;
             }
 
-            var alreadyLinked = await _employeeRepository.GetByUserIdAsync(userId);
-            if (alreadyLinked != null)
+            if (defaultDepartment == null || defaultPosition == null)
             {
-                return;
+                throw new InvalidOperationException(ApiMessages.DefaultCatalogMissing);
             }
 
-            await _employeeRepository.LinkUserAsync(employee.Id, userId);
+            var employee = new Employee
+            {
+                UserId = userId,
+                EmployeeCode = await GenerateUniqueEmployeeCodeAsync(),
+                FullName = request.FullName,
+                Email = request.Email,
+                PhoneNumber = request.PhoneNumber,
+                DepartmentId = defaultDepartment.Id,
+                PositionId = defaultPosition.Id,
+                HireDate = DateTime.Today,
+                Status = "Working",
+                Gender = "Other",
+                IsActive = true
+            };
+
+            await _employeeRepository.CreateAsync(employee);
+        }
+
+        private async Task<string> GenerateUniqueEmployeeCodeAsync()
+        {
+            for (var attempt = 0; attempt < 8; attempt++)
+            {
+                var date = DateTime.UtcNow.ToString("yyMMdd");
+                var code = $"EMP{date}{RandomNumberGenerator.GetInt32(1000, 10000)}";
+                if (_employeeRepository == null || !await _employeeRepository.ExistsByEmployeeCodeAsync(code))
+                {
+                    return code;
+                }
+            }
+
+            throw new InvalidOperationException("Không thể sinh mã nhân viên, vui lòng thử lại");
         }
 
         private static AuthResponse OkAuth(string message, AuthTokenDto tokens) => new()

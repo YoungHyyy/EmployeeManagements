@@ -46,6 +46,8 @@ public static class ApiMessages
     public const string UserCannotDeleteSelf = "Không thể xóa tài khoản của chính mình";
     public const string RoleInvalid = "Role không hợp lệ. Chỉ chấp nhận ADMIN hoặc EMPLOYEE";
     public static string RoleNotFound(string role) => $"Không tìm thấy role {role} trong hệ thống";
+    public const string DefaultCatalogMissing =
+        "Hệ thống chưa có phòng ban/chức vụ mặc định (UNASSIGNED / STAFF). Liên hệ Admin.";
 
     // ── Employee ───────────────────────────────────────────────────────────
     public const string EmployeeNotFound = "Không tìm thấy nhân viên";

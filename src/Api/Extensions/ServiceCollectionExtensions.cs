@@ -18,6 +18,8 @@ namespace EmployeeManagement.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    public const string CorsPolicyName = "Frontend";
+
     private static readonly JsonSerializerOptions AuthJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -114,6 +116,7 @@ public static class ServiceCollectionExtensions
             });
 
         services.AddAuthorization(options => AuthorizationPolicies.AddPolicies(options));
+        AddCorsPolicy(services, configuration);
         services.AddHealthChecks();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(c =>
@@ -191,6 +194,7 @@ public static class ServiceCollectionExtensions
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseSerilogRequestLogging();
         app.UseMiddleware<ExceptionMiddleware>();
+        app.UseCors(CorsPolicyName);
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapHealthChecks("/health");
@@ -199,9 +203,42 @@ public static class ServiceCollectionExtensions
         return app;
     }
 
-    /// <summary>
-    /// Wires Clean Architecture layers: Application (services) + Infrastructure (Dapper/repos).
-    /// </summary>
+    private static void AddCorsPolicy(IServiceCollection services, IConfiguration configuration)
+    {
+        var configuredOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                                ?? [];
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy(CorsPolicyName, policy =>
+            {
+                policy.AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .SetIsOriginAllowed(origin => IsAllowedOrigin(origin, configuredOrigins));
+            });
+        });
+    }
+
+    public static bool IsAllowedOrigin(string? origin, IReadOnlyCollection<string> configuredOrigins)
+    {
+        if (string.IsNullOrWhiteSpace(origin))
+        {
+            return false;
+        }
+
+        if (configuredOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.IsLoopback;
+    }
+
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddApplication();

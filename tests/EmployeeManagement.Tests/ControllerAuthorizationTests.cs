@@ -20,18 +20,27 @@ public class ControllerAuthorizationTests
     }
 
     [Fact]
-    public void DepartmentsGetAllAction_RequiresEmployeeOrAdminPolicy()
+    public void DepartmentsController_RequiresAdminOnlyPolicy()
     {
-        var method = typeof(DepartmentsController).GetMethod(nameof(DepartmentsController.GetAll));
-        Assert.NotNull(method);
-
-        var authorizeAttribute = method!
+        var authorizeAttribute = typeof(DepartmentsController)
             .GetCustomAttributes(typeof(AuthorizeAttribute), true)
             .OfType<AuthorizeAttribute>()
             .SingleOrDefault();
 
         Assert.NotNull(authorizeAttribute);
-        Assert.Equal(AuthorizationPolicies.EmployeeOrAdmin, authorizeAttribute!.Policy);
+        Assert.Equal(AuthorizationPolicies.AdminOnly, authorizeAttribute!.Policy);
+    }
+
+    [Fact]
+    public void PositionsController_RequiresAdminOnlyPolicy()
+    {
+        var authorizeAttribute = typeof(PositionsController)
+            .GetCustomAttributes(typeof(AuthorizeAttribute), true)
+            .OfType<AuthorizeAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(authorizeAttribute);
+        Assert.Equal(AuthorizationPolicies.AdminOnly, authorizeAttribute!.Policy);
     }
 
     [Fact]
@@ -46,18 +55,4 @@ public class ControllerAuthorizationTests
         Assert.Equal(AuthorizationPolicies.AdminOnly, authorizeAttribute!.Policy);
     }
 
-    [Fact]
-    public void DepartmentsCreateAction_RequiresAdminOnlyPolicy()
-    {
-        var method = typeof(DepartmentsController).GetMethod(nameof(DepartmentsController.Create));
-        Assert.NotNull(method);
-
-        var authorizeAttribute = method!
-            .GetCustomAttributes(typeof(AuthorizeAttribute), true)
-            .OfType<AuthorizeAttribute>()
-            .SingleOrDefault();
-
-        Assert.NotNull(authorizeAttribute);
-        Assert.Equal(AuthorizationPolicies.AdminOnly, authorizeAttribute!.Policy);
-    }
 }

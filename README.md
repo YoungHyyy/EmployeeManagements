@@ -71,6 +71,7 @@ File: `src/Api/appsettings.json`
 | `Jwt:Issuer` / `Jwt:Audience` | Issuer & Audience |
 | `Jwt:ExpiresInMinutes` | Thời hạn Access Token (mặc định 60) |
 | `Jwt:RefreshTokenDays` | Thời hạn Refresh Token (mặc định 7) |
+| `Cors:AllowedOrigins` | Origin frontend được phép (dev: mọi `localhost` / `127.0.0.1`) |
 
 **Mẫu connection (local):**
 
@@ -199,13 +200,13 @@ Compose tự mount `database/schema.sql` và `seed-admin-user.sql` khi khởi t�
 | Role | Quyền |
 |------|--------|
 | **ADMIN** | Quản lý Users, Employees, Departments, Positions, Dashboard |
-| **EMPLOYEE** | Profile (xem/sửa hồ sơ của mình, gồm field nhân sự nếu đã gắn Employee), đổi mật khẩu, upload avatar; xem danh mục phòng ban/chức vụ (GET) |
+| **EMPLOYEE** | Chỉ xem/sửa hồ sơ của mình (`/api/Profile`, gồm tên phòng ban/chức vụ), đổi mật khẩu, upload avatar |
 
 ### 7.4. Tạo tài khoản
 
 | Cách | Endpoint | Ghi chú |
 |------|----------|---------|
-| Đăng ký public | `POST /api/Auth/register` | **Luôn** gán role `EMPLOYEE` (không nhận role từ client) |
+| Đăng ký public | `POST /api/Auth/register` | **Luôn** gán role `EMPLOYEE` (không nhận role từ client); tạo hồ sơ nhân viên mặc định (`UNASSIGNED` / `STAFF`) |
 | Admin tạo user | `POST /api/Users` | Cần JWT Admin; `roleCode`: `ADMIN` hoặc `EMPLOYEE` |
 
 Ví dụ tạo Admin mới (đã Authorize bằng Admin):
@@ -285,14 +286,14 @@ Response `data`: `{ items, page, pageSize, totalCount, totalPages }`
 
 | Method | Path | Quyền |
 |--------|------|--------|
-| GET | `/`, `/{id}` | Admin hoặc Employee |
+| GET | `/`, `/{id}` | Admin only |
 | POST, PUT, DELETE | | Admin only |
 
 Không xóa phòng ban còn nhân viên.
 
 ### Positions — `/api/Positions` (Admin)
 
-GET: Admin hoặc Employee. POST/PUT/DELETE: Admin. Không xóa chức vụ còn nhân viên.
+Toàn bộ CRUD: Admin only. Employee thấy tên phòng ban/chức vụ trên `GET /api/Profile`. Không xóa chức vụ còn nhân viên.
 
 ### Profile — `/api/Profile` (Admin hoặc Employee)
 
@@ -392,7 +393,8 @@ Auth (`login`/`register`/…) cũng dùng wrapper chuẩn; token nằm trong `da
 - Email unique  
 - Mã nhân viên tự sinh  
 - Chỉ Admin tạo tài khoản (qua `/api/Users`); register public chỉ Employee  
-- User và Employee gắn bằng `Employees.UserId` (cùng email thì tự link khi register / tạo user / tạo NV)  
+- User và Employee gắn bằng `Employees.UserId`  
+- **Đăng ký** tạo luôn hồ sơ `Employees` (mã NV tự sinh, phòng ban `UNASSIGNED` / chức vụ `STAFF`) để `GET /api/Profile` có đủ thông tin; Admin có thể chuyển phòng ban/chức vụ sau  
 - Employee không sửa Role  
 - Không tự xóa tài khoản của mình  
 
@@ -414,7 +416,7 @@ dotnet test EmployeeManagement.sln
 ```
 
 - Framework: **xUnit** + **Moq**  
-- Hiện tại: **75** unit tests (vượt yêu cầu tối thiểu 10)  
+- Hiện tại: **84** unit tests (vượt yêu cầu tối thiểu 10)  
 - Thư mục: `tests/EmployeeManagement.Tests`
 
 ---

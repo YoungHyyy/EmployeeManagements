@@ -306,13 +306,15 @@ WHERE r.Code = 'ADMIN';
 INSERT INTO `Departments` (`Code`, `Name`, `Description`) VALUES
 ('BOD', 'Ban Giám Đốc', 'Executive board'),
 ('HR', 'Phòng Nhân Sự', 'Human resources'),
-('IT', 'Phòng Công Nghệ', 'Information technology');
+('IT', 'Phòng Công Nghệ', 'Information technology'),
+('UNASSIGNED', 'Chưa phân bổ', 'Phòng ban mặc định khi đăng ký tài khoản');
 
 INSERT INTO `Positions` (`Code`, `Name`, `Description`, `Level`) VALUES
 ('DIR', 'Director', 'Director', 1),
 ('MGR', 'Manager', 'Manager', 2),
 ('DEV', 'Developer', 'Developer', 3),
-('HR', 'HR Executive', 'HR executive', 3);
+('HR', 'HR Executive', 'HR executive', 3),
+('STAFF', 'Nhân viên', 'Chức vụ mặc định khi đăng ký tài khoản', 4);
 
 -- Email: admin@example.com | Password: Admin123@
 INSERT INTO `Users` (`UserName`, `Email`, `PasswordHash`, `FullName`, `PhoneNumber`) VALUES
