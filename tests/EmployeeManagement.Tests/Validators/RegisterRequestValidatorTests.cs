@@ -34,7 +34,9 @@ public class RegisterRequestValidatorTests
             Email = "a.nguyen@example.com",
             Password = "Abcdef1!",
             ConfirmPassword = "Abcdef1!",
-            PhoneNumber = "0901234567"
+            PhoneNumber = "0901234567",
+            DepartmentId = 1,
+            PositionId = 1
         };
 
         var result = _validator.Validate(request);

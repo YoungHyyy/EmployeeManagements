@@ -56,6 +56,8 @@ public static class ApiMessages
     public const string EmployeeDeleted = "Xóa nhân viên thành công";
     public const string EmployeeRestored = "Khôi phục nhân viên thành công";
     public const string EmployeeEmailExists = "Email đã tồn tại trong hệ thống";
+    public const string EmployeePasswordRequired = "Mật khẩu là bắt buộc khi tạo nhân viên";
+    public const string EmployeeAccountRequired = "Không tìm thấy hồ sơ nhân viên gắn với tài khoản này";
 
     // ── Department ─────────────────────────────────────────────────────────
     public const string DepartmentNotFound = "Không tìm thấy phòng ban";

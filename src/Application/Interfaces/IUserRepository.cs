@@ -12,6 +12,8 @@ namespace EmployeeManagement.Application.Interfaces
         Task<int> CreateAsync(User user);
         /// <summary>Insert User + UserRoles trong một transaction. Lỗi → rollback cả hai.</summary>
         Task<int> CreateWithRoleAsync(User user, int roleId);
+        /// <summary>Insert User + UserRoles + Employee trong một transaction. Lỗi → rollback cả ba.</summary>
+        Task<(int UserId, int EmployeeId)> CreateWithRoleAndEmployeeAsync(User user, int roleId, Employee employee);
         Task UpdateAsync(User user);
         Task SoftDeleteAsync(int id);
         Task<IEnumerable<User>> ListAsync(int page, int pageSize);

@@ -4,10 +4,11 @@ namespace EmployeeManagement.Application.Interfaces;
 
 public interface IProfileService
 {
-    Task<ProfileDto?> GetByEmailAsync(string email);
-    Task UpdateByEmailAsync(string email, ProfileUpdateRequest request);
-    Task<string> UploadAvatarByEmailAsync(
-        string email,
+    /// <summary>Hồ sơ nhân viên của user đang đăng nhập — xác định bằng UserId từ JWT, không nhận EmployeeId từ client.</summary>
+    Task<ProfileDto?> GetByUserIdAsync(int userId);
+    Task UpdateByUserIdAsync(int userId, ProfileUpdateRequest request);
+    Task<string> UploadAvatarByUserIdAsync(
+        int userId,
         Stream fileStream,
         string fileName,
         string contentType,

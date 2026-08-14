@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using EmployeeManagement.Domain.Entities;
@@ -7,74 +8,66 @@ namespace EmployeeManagement.Application.Services;
 public class ProfileService : IProfileService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     private readonly IAvatarUploadService _avatarUploadService;
-    private readonly IEmployeeRepository? _employeeRepository;
-    private readonly IDepartmentRepository? _departmentRepository;
-    private readonly IPositionRepository? _positionRepository;
 
     public ProfileService(
         IUserRepository userRepository,
-        IAvatarUploadService avatarUploadService,
-        IEmployeeRepository? employeeRepository = null,
-        IDepartmentRepository? departmentRepository = null,
-        IPositionRepository? positionRepository = null)
+        IEmployeeRepository employeeRepository,
+        IAvatarUploadService avatarUploadService)
     {
         _userRepository = userRepository;
-        _avatarUploadService = avatarUploadService;
         _employeeRepository = employeeRepository;
-        _departmentRepository = departmentRepository;
-        _positionRepository = positionRepository;
+        _avatarUploadService = avatarUploadService;
     }
 
-    public async Task<ProfileDto?> GetByEmailAsync(string email)
+    public async Task<ProfileDto?> GetByUserIdAsync(int userId)
     {
-        var user = await _userRepository.GetByEmailAsync(email);
+        var user = await _userRepository.GetByIdAsync(userId);
         if (user == null)
         {
             return null;
         }
 
-        var employee = await FindAndLinkEmployeeAsync(user);
-        return await MapAsync(user, employee);
+        var employee = await _employeeRepository.GetByUserIdAsync(userId);
+        return Map(user, employee);
     }
 
-    public async Task UpdateByEmailAsync(string email, ProfileUpdateRequest request)
+    public async Task UpdateByUserIdAsync(int userId, ProfileUpdateRequest request)
     {
-        var user = await _userRepository.GetByEmailAsync(email)
-            ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ người dùng");
+        var user = await _userRepository.GetByIdAsync(userId)
+            ?? throw new KeyNotFoundException(ApiMessages.ProfileNotFound);
 
         user.FullName = request.FullName;
         user.PhoneNumber = request.PhoneNumber;
         await _userRepository.UpdateAsync(user);
 
-        var employee = await FindAndLinkEmployeeAsync(user);
-        if (employee == null)
+        var employee = await _employeeRepository.GetByUserIdAsync(userId);
+        if (employee != null)
         {
-            return;
+            employee.FullName = request.FullName;
+            employee.PhoneNumber = request.PhoneNumber;
+            employee.DateOfBirth = request.DateOfBirth;
+            employee.Gender = request.Gender;
+            employee.Address = request.Address;
+            await _employeeRepository.UpdateAsync(employee);
         }
-
-        employee.FullName = request.FullName;
-        employee.PhoneNumber = request.PhoneNumber;
-        employee.DateOfBirth = request.DateOfBirth;
-        employee.Gender = request.Gender;
-        employee.Address = request.Address;
-        await _employeeRepository!.UpdateAsync(employee);
     }
 
-    public async Task<string> UploadAvatarByEmailAsync(
-        string email,
+    public async Task<string> UploadAvatarByUserIdAsync(
+        int userId,
         Stream fileStream,
         string fileName,
         string contentType,
         long fileSize,
         string webRootPath)
     {
-        var user = await _userRepository.GetByEmailAsync(email)
-            ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ người dùng");
+        var user = await _userRepository.GetByIdAsync(userId)
+            ?? throw new KeyNotFoundException(ApiMessages.ProfileNotFound);
 
         if (fileStream is null || fileSize <= 0 || string.IsNullOrWhiteSpace(fileName))
         {
-            throw new ArgumentException("Vui lòng chọn file ảnh hợp lệ.");
+            throw new ArgumentException(ApiMessages.AvatarInvalid);
         }
 
         var storageRoot = string.IsNullOrWhiteSpace(webRootPath)
@@ -90,78 +83,25 @@ public class ProfileService : IProfileService
 
         user.AvatarUrl = avatarPath;
         await _userRepository.UpdateAsync(user);
-
-        var employee = await FindAndLinkEmployeeAsync(user);
-        if (employee != null)
-        {
-            employee.AvatarUrl = avatarPath;
-            await _employeeRepository!.UpdateAsync(employee);
-        }
-
         return avatarPath;
     }
 
-    private async Task<Employee?> FindAndLinkEmployeeAsync(User user)
+    private static ProfileDto Map(User user, Employee? employee) => new()
     {
-        if (_employeeRepository == null)
-        {
-            return null;
-        }
-
-        var byUser = await _employeeRepository.GetByUserIdAsync(user.Id);
-        if (byUser != null)
-        {
-            return byUser;
-        }
-
-        var byEmail = await _employeeRepository.GetByEmailAsync(user.Email);
-        if (byEmail == null)
-        {
-            return null;
-        }
-
-        if (!byEmail.UserId.HasValue)
-        {
-            await _employeeRepository.LinkUserAsync(byEmail.Id, user.Id);
-            byEmail.UserId = user.Id;
-        }
-
-        return byEmail;
-    }
-
-    private async Task<ProfileDto> MapAsync(User user, Employee? employee)
-    {
-        string? departmentName = null;
-        string? positionName = null;
-        if (employee != null && _departmentRepository != null)
-        {
-            departmentName = (await _departmentRepository.GetByIdAsync(employee.DepartmentId))?.Name;
-        }
-
-        if (employee != null && _positionRepository != null)
-        {
-            positionName = (await _positionRepository.GetByIdAsync(employee.PositionId))?.Name;
-        }
-
-        return new ProfileDto
-        {
-            Id = user.Id,
-            EmployeeId = employee?.Id,
-            EmployeeCode = employee?.EmployeeCode,
-            FullName = user.FullName,
-            Email = user.Email,
-            PhoneNumber = user.PhoneNumber,
-            AvatarUrl = user.AvatarUrl ?? employee?.AvatarUrl,
-            DateOfBirth = employee?.DateOfBirth,
-            Gender = employee?.Gender,
-            Address = employee?.Address,
-            DepartmentId = employee?.DepartmentId,
-            PositionId = employee?.PositionId,
-            DepartmentName = departmentName,
-            PositionName = positionName,
-            HireDate = employee?.HireDate,
-            Status = employee?.Status,
-            CreatedAt = user.CreatedAt
-        };
-    }
+        Id = user.Id,
+        EmployeeId = employee?.Id ?? 0,
+        EmployeeCode = employee?.EmployeeCode ?? string.Empty,
+        FullName = employee?.FullName ?? user.FullName,
+        Email = user.Email,
+        PhoneNumber = employee?.PhoneNumber ?? user.PhoneNumber,
+        DateOfBirth = employee?.DateOfBirth,
+        Gender = employee?.Gender,
+        Address = employee?.Address,
+        DepartmentId = employee?.DepartmentId ?? 0,
+        PositionId = employee?.PositionId ?? 0,
+        HireDate = employee?.HireDate ?? default,
+        Status = employee?.Status,
+        AvatarUrl = user.AvatarUrl,
+        CreatedAt = user.CreatedAt
+    };
 }

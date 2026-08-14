@@ -10,85 +10,134 @@ namespace EmployeeManagement.Tests.Services;
 public class ProfileServiceTests
 {
     [Fact]
-    public async Task GetByEmailAsync_ShouldIncludeEmployeeFields_WhenLinked()
+    public async Task GetByUserIdAsync_ShouldReturnEmployeeLinkedToJwtUser_AndAvatarFromUser()
     {
-        var users = new Mock<IUserRepository>();
-        users.Setup(x => x.GetByEmailAsync("a@mail.com")).ReturnsAsync(new User
+        var userRepo = new Mock<IUserRepository>();
+        var employeeRepo = new Mock<IEmployeeRepository>();
+        userRepo.Setup(x => x.GetByIdAsync(7)).ReturnsAsync(new User
         {
-            Id = 4,
-            Email = "a@mail.com",
-            FullName = "Nguyen A",
-            PhoneNumber = "0901234567",
+            Id = 7,
+            Email = "me@example.com",
+            FullName = "Me",
+            AvatarUrl = "/uploads/avatars/me.png",
             CreatedAt = DateTime.UtcNow
         });
-
-        var employees = new Mock<IEmployeeRepository>();
-        employees.Setup(x => x.GetByUserIdAsync(4)).ReturnsAsync(new Employee
+        employeeRepo.Setup(x => x.GetByUserIdAsync(7)).ReturnsAsync(new Employee
         {
-            Id = 20,
-            UserId = 4,
-            EmployeeCode = "EMP001",
+            Id = 99,
+            UserId = 7,
+            EmployeeCode = "EMP1",
+            FullName = "Me",
+            Email = "me@example.com",
             DepartmentId = 1,
             PositionId = 2,
-            DateOfBirth = new DateTime(1995, 1, 2),
-            Gender = "Male",
-            Address = "HN",
             HireDate = DateTime.Today,
-            Status = "Working"
+            Status = "Working",
+            AvatarUrl = "/should-not-use.png"
         });
 
-        var departments = new Mock<IDepartmentRepository>();
-        departments.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Department { Id = 1, Name = "IT" });
-        var positions = new Mock<IPositionRepository>();
-        positions.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Position { Id = 2, Name = "Dev" });
+        var service = new ProfileService(userRepo.Object, employeeRepo.Object, Mock.Of<IAvatarUploadService>());
 
-        var service = new ProfileService(
-            users.Object,
-            Mock.Of<IAvatarUploadService>(),
-            employees.Object,
-            departments.Object,
-            positions.Object);
-
-        var profile = await service.GetByEmailAsync("a@mail.com");
+        var profile = await service.GetByUserIdAsync(7);
 
         profile.Should().NotBeNull();
-        profile!.EmployeeId.Should().Be(20);
-        profile.EmployeeCode.Should().Be("EMP001");
-        profile.Gender.Should().Be("Male");
-        profile.Address.Should().Be("HN");
-        profile.DepartmentName.Should().Be("IT");
-        profile.PositionName.Should().Be("Dev");
+        profile!.Id.Should().Be(7);
+        profile.EmployeeId.Should().Be(99);
+        profile.AvatarUrl.Should().Be("/uploads/avatars/me.png");
+        employeeRepo.Verify(x => x.GetByUserIdAsync(7), Times.Once);
+        employeeRepo.Verify(x => x.GetByIdAsync(It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
-    public async Task UpdateByEmailAsync_ShouldWriteEmployeeHrFields()
+    public async Task GetByUserIdAsync_ShouldReturnUserProfile_WhenAdminHasNoEmployee()
     {
-        var user = new User { Id = 4, Email = "a@mail.com", FullName = "Old", PhoneNumber = "0901111111" };
-        var employee = new Employee { Id = 20, UserId = 4, FullName = "Old", DepartmentId = 1, PositionId = 1 };
-
-        var users = new Mock<IUserRepository>();
-        users.Setup(x => x.GetByEmailAsync("a@mail.com")).ReturnsAsync(user);
-        users.Setup(x => x.UpdateAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
-
-        var employees = new Mock<IEmployeeRepository>();
-        employees.Setup(x => x.GetByUserIdAsync(4)).ReturnsAsync(employee);
-        employees.Setup(x => x.UpdateAsync(It.IsAny<Employee>())).Returns(Task.CompletedTask);
-
-        var service = new ProfileService(users.Object, Mock.Of<IAvatarUploadService>(), employees.Object);
-
-        await service.UpdateByEmailAsync("a@mail.com", new ProfileUpdateRequest
+        var userRepo = new Mock<IUserRepository>();
+        var employeeRepo = new Mock<IEmployeeRepository>();
+        userRepo.Setup(x => x.GetByIdAsync(7)).ReturnsAsync(new User
         {
-            FullName = "Nguyen A",
+            Id = 7,
+            Email = "admin@example.com",
+            FullName = "Admin",
+            AvatarUrl = "/uploads/avatars/admin.png"
+        });
+        employeeRepo.Setup(x => x.GetByUserIdAsync(7)).ReturnsAsync((Employee?)null);
+
+        var service = new ProfileService(userRepo.Object, employeeRepo.Object, Mock.Of<IAvatarUploadService>());
+
+        var profile = await service.GetByUserIdAsync(7);
+
+        profile.Should().NotBeNull();
+        profile!.Id.Should().Be(7);
+        profile.EmployeeId.Should().Be(0);
+        profile.FullName.Should().Be("Admin");
+        profile.AvatarUrl.Should().Be("/uploads/avatars/admin.png");
+    }
+
+    [Fact]
+    public async Task UpdateByUserIdAsync_ShouldWriteEmployeeHrFields_AndNotTouchEmployeeAvatar()
+    {
+        var userRepo = new Mock<IUserRepository>();
+        var employeeRepo = new Mock<IEmployeeRepository>();
+        var user = new User { Id = 7, Email = "me@example.com", FullName = "Old", AvatarUrl = "/a.png" };
+        var employee = new Employee
+        {
+            Id = 99,
+            UserId = 7,
+            FullName = "Old",
+            Email = "me@example.com",
+            AvatarUrl = "/old-emp.png",
+            DepartmentId = 1,
+            PositionId = 1,
+            HireDate = DateTime.Today
+        };
+        userRepo.Setup(x => x.GetByIdAsync(7)).ReturnsAsync(user);
+        employeeRepo.Setup(x => x.GetByUserIdAsync(7)).ReturnsAsync(employee);
+
+        var service = new ProfileService(userRepo.Object, employeeRepo.Object, Mock.Of<IAvatarUploadService>());
+
+        await service.UpdateByUserIdAsync(7, new ProfileUpdateRequest
+        {
+            FullName = "New Name",
             PhoneNumber = "0901234567",
+            DateOfBirth = new DateTime(1995, 1, 2),
             Gender = "Female",
-            Address = "HCM",
-            DateOfBirth = new DateTime(1998, 5, 5)
+            Address = "Hanoi"
         });
 
-        employee.FullName.Should().Be("Nguyen A");
+        employee.FullName.Should().Be("New Name");
+        employee.DateOfBirth.Should().Be(new DateTime(1995, 1, 2));
         employee.Gender.Should().Be("Female");
-        employee.Address.Should().Be("HCM");
-        employee.DateOfBirth.Should().Be(new DateTime(1998, 5, 5));
-        employees.Verify(x => x.UpdateAsync(employee), Times.Once);
+        employee.Address.Should().Be("Hanoi");
+        employee.AvatarUrl.Should().Be("/old-emp.png");
+        user.FullName.Should().Be("New Name");
+        user.AvatarUrl.Should().Be("/a.png");
+        employeeRepo.Verify(x => x.UpdateAsync(employee), Times.Once);
+        userRepo.Verify(x => x.UpdateAsync(user), Times.Once);
+        employeeRepo.Verify(x => x.GetByIdAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadAvatarByUserIdAsync_ShouldWriteUsersAvatarOnly()
+    {
+        var userRepo = new Mock<IUserRepository>();
+        var employeeRepo = new Mock<IEmployeeRepository>();
+        var avatar = new Mock<IAvatarUploadService>();
+        var user = new User { Id = 7, Email = "me@example.com" };
+        var employee = new Employee { Id = 99, UserId = 7, AvatarUrl = "/emp.png" };
+        userRepo.Setup(x => x.GetByIdAsync(7)).ReturnsAsync(user);
+        employeeRepo.Setup(x => x.GetByUserIdAsync(7)).ReturnsAsync(employee);
+        avatar.Setup(x => x.SaveAsync(It.IsAny<Stream>(), "a.png", "image/png", 10, It.IsAny<string>()))
+            .ReturnsAsync("/uploads/avatars/a.png");
+
+        var service = new ProfileService(userRepo.Object, employeeRepo.Object, avatar.Object);
+
+        var path = await service.UploadAvatarByUserIdAsync(
+            7, new MemoryStream(new byte[10]), "a.png", "image/png", 10, "/tmp");
+
+        path.Should().Be("/uploads/avatars/a.png");
+        user.AvatarUrl.Should().Be("/uploads/avatars/a.png");
+        employee.AvatarUrl.Should().Be("/emp.png");
+        userRepo.Verify(x => x.UpdateAsync(user), Times.Once);
+        employeeRepo.Verify(x => x.UpdateAsync(It.IsAny<Employee>()), Times.Never);
     }
 }

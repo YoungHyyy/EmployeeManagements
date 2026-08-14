@@ -25,5 +25,24 @@ public class TokenServiceTests
 
         token.Should().NotBeNullOrWhiteSpace();
         token.Split('.').Should().HaveCount(3);
+        service.GetAccessTokenExpiresMinutes().Should().Be(60);
+        service.GetRefreshTokenDays().Should().Be(7);
+    }
+
+    [Fact]
+    public void TokenLifetime_ShouldReadJwtSection()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:ExpiresInMinutes"] = "15",
+                ["Jwt:RefreshTokenDays"] = "3"
+            })
+            .Build();
+
+        var service = new TokenService(configuration);
+
+        service.GetAccessTokenExpiresMinutes().Should().Be(15);
+        service.GetRefreshTokenDays().Should().Be(3);
     }
 }

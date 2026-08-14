@@ -28,6 +28,9 @@ public class Employee
     public decimal? Salary { get; set; }
     public DateTime? ContractStartDate { get; set; }
     public DateTime? ContractEndDate { get; set; }
+
+    /// <summary>Cột DB còn tồn tại; business dùng Users.AvatarUrl. Không INSERT/UPDATE.</summary>
+    [DbIgnore]
     public string? AvatarUrl { get; set; }
     public bool IsActive { get; set; }
     public bool IsDeleted { get; set; }

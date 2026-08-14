@@ -20,6 +20,8 @@ public class EntityColumnMapperTests
         {
             "DepartmentId", "PositionId", "EmployeeCode", "FullName", "Email", "UserId"
         });
+        map.InsertColumns.Should().NotContain("AvatarUrl");
+        map.UpdateColumns.Should().NotContain("AvatarUrl");
 
         // Hệ thống: base tự gán — không nằm INSERT body
         map.InsertColumns.Should().NotContain(new[]

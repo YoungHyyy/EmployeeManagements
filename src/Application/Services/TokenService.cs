@@ -22,7 +22,7 @@ public class TokenService : ITokenService
         var key = jwt["Key"] ?? throw new InvalidOperationException("Jwt:Key not configured");
         var issuer = jwt["Issuer"];
         var audience = jwt["Audience"];
-        var expiresMinutes = int.TryParse(jwt["ExpiresInMinutes"], out var m) ? m : 60;
+        var expiresMinutes = GetAccessTokenExpiresMinutes();
 
         var tokenHandler = new JwtSecurityTokenHandler();
         var keyBytes = Encoding.UTF8.GetBytes(key);

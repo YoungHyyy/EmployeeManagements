@@ -117,6 +117,15 @@ public abstract class GenericRepository<TEntity> : BaseRepository<TEntity> where
         return QuerySingleAsync(sql, new { id });
     }
 
+    public virtual Task<TEntity?> GetByIdIncludingDeletedAsync(int id)
+    {
+        var sql = $@"
+            SELECT * FROM `{TableName}`
+            WHERE `Id` = @id
+            LIMIT 1";
+        return QuerySingleAsync(sql, new { id });
+    }
+
     public virtual async Task<IEnumerable<TEntity>> ListAsync(int page = 1, int pageSize = 20)
     {
         var filter = CreateFilter().AddPaging(page, pageSize);

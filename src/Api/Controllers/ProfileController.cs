@@ -8,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace EmployeeManagement.Api.Controllers;
 
 /// <summary>
-/// Presentation layer: only IProfileService. No repository, no try/catch.
+/// Presentation layer: only IProfileService. Identity from JWT NameIdentifier (UserId).
+/// Client cannot pass EmployeeId/UserId to read another profile.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -27,8 +28,7 @@ public class ProfileController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetProfile()
     {
-        var email = GetCurrentUserEmail();
-        var profile = await _profileService.GetByEmailAsync(email);
+        var profile = await _profileService.GetByUserIdAsync(GetCurrentUserId());
         return profile == null
             ? NotFound(ApiResponse.Fail("Không tìm thấy hồ sơ người dùng"))
             : Ok(profile);
@@ -37,15 +37,13 @@ public class ProfileController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> UpdateProfile([FromBody] ProfileUpdateRequest request)
     {
-        var email = GetCurrentUserEmail();
-        await _profileService.UpdateByEmailAsync(email, request);
+        await _profileService.UpdateByUserIdAsync(GetCurrentUserId(), request);
         return Ok(ApiResponse.Ok(message: "Cập nhật hồ sơ thành công"));
     }
 
     [HttpPost("avatar")]
     public async Task<IActionResult> UploadAvatar(IFormFile file)
     {
-        var email = GetCurrentUserEmail();
         if (file is null || file.Length == 0)
         {
             throw new ArgumentException("Vui lòng chọn file ảnh hợp lệ.");
@@ -56,8 +54,8 @@ public class ProfileController : ControllerBase
             ? Path.Combine(_env.ContentRootPath, "wwwroot")
             : _env.WebRootPath;
 
-        var avatarPath = await _profileService.UploadAvatarByEmailAsync(
-            email,
+        var avatarPath = await _profileService.UploadAvatarByUserIdAsync(
+            GetCurrentUserId(),
             stream,
             file.FileName,
             file.ContentType,
@@ -67,15 +65,14 @@ public class ProfileController : ControllerBase
         return Ok(ApiResponse.Ok(new { avatarUrl = avatarPath }, "Tải ảnh đại diện thành công"));
     }
 
-    private string GetCurrentUserEmail()
+    private int GetCurrentUserId()
     {
-        var email = User.FindFirst(ClaimTypes.Email)?.Value
-                    ?? User.Identity?.Name;
-        if (string.IsNullOrWhiteSpace(email))
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(claim) || !int.TryParse(claim, out var userId))
         {
             throw new UnauthorizedAccessException("Chưa đăng nhập hoặc token không hợp lệ");
         }
 
-        return email;
+        return userId;
     }
 }

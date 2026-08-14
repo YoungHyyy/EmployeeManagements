@@ -15,6 +15,9 @@ public class EmployeeDto
     public int PositionId { get; set; }
     public DateTime HireDate { get; set; }
     public string? Status { get; set; }
+    /// <summary>Chỉ dùng khi tạo (Admin). Không map ra GET; không ghi Employees.AvatarUrl.</summary>
+    public string? Password { get; set; }
+    /// <summary>Nguồn: Users.AvatarUrl. Client gửi lên khi tạo/sửa bị bỏ qua.</summary>
     public string? AvatarUrl { get; set; }
     public bool IsActive { get; set; } = true;
 }
