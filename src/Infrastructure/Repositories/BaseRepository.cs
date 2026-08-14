@@ -22,6 +22,39 @@ public abstract class BaseRepository
 
     protected IDbConnection CreateConnection() => _dbFactory.CreateConnection();
 
+    /// <summary>
+    /// Một connection + transaction. Lỗi → rollback, không để bản ghi dở.
+    /// </summary>
+    protected async Task<T> WithTransactionAsync<T>(Func<IDbConnection, IDbTransaction, Task<T>> action)
+    {
+        using var conn = CreateConnection();
+        if (conn.State != ConnectionState.Open)
+        {
+            conn.Open();
+        }
+
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            var result = await action(conn, tx);
+            tx.Commit();
+            return result;
+        }
+        catch
+        {
+            try
+            {
+                tx.Rollback();
+            }
+            catch
+            {
+                // Transaction may already be aborted by the provider.
+            }
+
+            throw;
+        }
+    }
+
     protected async Task<int> ExecuteAsync(string sql, object? param = null)
     {
         using var conn = CreateConnection();

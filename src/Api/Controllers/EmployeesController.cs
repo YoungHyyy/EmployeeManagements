@@ -101,9 +101,10 @@ public class EmployeesController : ControllerBase
         return Ok(ApiResponse.Ok(message: "Xóa nhân viên thành công"));
     }
 
-    /// <summary>Khôi phục → 200</summary>
+    /// <summary>Khôi phục → 200 / 404</summary>
     [HttpPatch("{id:int}/restore")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Restore(int id)
     {
         await _service.RestoreAsync(id, GetCurrentUserId());

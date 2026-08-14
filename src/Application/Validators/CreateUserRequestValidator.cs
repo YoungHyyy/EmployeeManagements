@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using FluentValidation;
 
@@ -23,8 +24,18 @@ public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
             .Matches("[0-9]").WithMessage("Mật khẩu phải có số");
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^(0)(3|5|7|8|9)\d{8}$")
+            .Matches(ValidationRules.VietnamPhone)
             .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber))
-            .WithMessage("Số điện thoại không đúng định dạng Việt Nam");
+            .WithMessage(ValidationRules.VietnamPhoneMessage);
+
+        RuleFor(x => x.RoleCode)
+            .Must(code =>
+            {
+                var normalized = string.IsNullOrWhiteSpace(code)
+                    ? "EMPLOYEE"
+                    : code.Trim().ToUpperInvariant();
+                return normalized is "ADMIN" or "EMPLOYEE";
+            })
+            .WithMessage("Role không hợp lệ. Chỉ chấp nhận ADMIN hoặc EMPLOYEE");
     }
 }

@@ -43,4 +43,16 @@ public class TokenService : ITokenService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
+
+    public int GetAccessTokenExpiresMinutes()
+    {
+        var raw = _configuration["Jwt:ExpiresInMinutes"];
+        return int.TryParse(raw, out var minutes) && minutes > 0 ? minutes : 60;
+    }
+
+    public int GetRefreshTokenDays()
+    {
+        var raw = _configuration["Jwt:RefreshTokenDays"];
+        return int.TryParse(raw, out var days) && days > 0 ? days : 7;
+    }
 }

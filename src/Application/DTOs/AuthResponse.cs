@@ -1,11 +1,10 @@
 namespace EmployeeManagement.Application.DTOs
 {
-    public class AuthResponse : ApiResponseBase
+    /// <summary>
+    /// Auth theo chuẩn backend.md §12: { success, message, data }.
+    /// Token nằm trong <see cref="ApiResponse{T}.Data"/>.
+    /// </summary>
+    public class AuthResponse : ApiResponse<AuthTokenDto>
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public string AccessToken { get; set; } = string.Empty;
-        public string RefreshToken { get; set; } = string.Empty;
-        public long ExpiresAt { get; set; }
     }
 }

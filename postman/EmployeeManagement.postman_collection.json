@@ -2,125 +2,163 @@
   "info": {
     "name": "EmployeeManagement API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "1.0.0",
-    "description": "Postman collection cho EmployeeManagement API (generated). Sử dụng biến môi trường `baseUrl` và `accessToken`."
+    "version": "2.0.0",
+    "description": "Bộ Postman đầy đủ theo backend.md. Dùng environment `baseUrl`, `accessToken`, `refreshToken`, `adminEmail`, `adminPassword`."
   },
   "auth": {
     "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{accessToken}}",
-        "type": "string"
-      }
-    ]
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5269"
-    }
-  ],
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "exec": [
-          "// Auto-login pre-request: if accessToken missing, call /api/Auth/login using adminEmail/adminPassword env vars",
-          "if (!pm.environment.get('accessToken')) {",
-          "  pm.sendRequest({",
-          "    url: pm.environment.get('baseUrl') + '/api/Auth/login',",
-          "    method: 'POST',",
-          "    header: { 'Content-Type': 'application/json' },",
-          "    body: { mode: 'raw', raw: JSON.stringify({ email: pm.environment.get('adminEmail'), password: pm.environment.get('adminPassword') }) }",
-          "  }, function (err, res) {",
-          "    if (!err && res && res.code === 200) {",
-          "      var body = res.json();",
-          "      var token = (body.data && body.data.accessToken) || body.accessToken || (body.data && body.data.token);",
-          "      if (token) pm.environment.set('accessToken', token);",
-          "    }",
-          "  });",
-          "}"
-        ]
-      }
-    }
+    { "key": "baseUrl", "value": "http://localhost:5269" }
   ],
   "item": [
     {
       "name": "Auth",
       "item": [
         {
-          "name": "Login",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"admin.test@example.com\",\n  \"password\": \"Admin123@\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/Auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "Auth",
-                "login"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "// Save access token to environment variable",
-                  "if (pm.response.code === 200) {",
-                  "  var body = pm.response.json();",
-                  "  var token = (body.data && body.data.accessToken) || body.accessToken || (body.data && body.data.token);",
-                  "  if (token) {",
-                  "    pm.environment.set('accessToken', token);",
-                  "  }",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Register",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Test User\",\n  \"email\": \"test.user@example.com\",\n  \"phoneNumber\": \"0123456789\",\n  \"password\": \"User123@\",\n  \"confirmPassword\": \"User123@\"\n}"
+              "raw": "{\n  \"fullName\": \"Nguyen Van B\",\n  \"email\": \"employee.b@example.com\",\n  \"phoneNumber\": \"0912345678\",\n  \"password\": \"User1234\",\n  \"confirmPassword\": \"User1234\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/Auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "Auth",
-                "register"
+            "url": "{{baseUrl}}/api/Auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "  var body = pm.response.json();",
+                "  var data = body.data || {};",
+                "  if (data.accessToken) pm.environment.set('accessToken', data.accessToken);",
+                "  if (data.refreshToken) pm.environment.set('refreshToken', data.refreshToken);",
+                "}"
               ]
             }
-          },
-          "response": []
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Auth/login"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Auth/refresh-token"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Auth/logout"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Admin123@\",\n  \"newPassword\": \"Admin1234\",\n  \"confirmPassword\": \"Admin1234\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Auth/change-password"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Auth/forgot-password"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"otpCode\": \"123456\",\n  \"newPassword\": \"Admin123@\",\n  \"confirmPassword\": \"Admin123@\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Auth/reset-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/Users?page=1&pageSize=20" }
+        },
+        {
+          "name": "Get By Id",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/Users/1" }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Admin Moi\",\n  \"email\": \"admin.new@example.com\",\n  \"password\": \"Admin123@\",\n  \"phoneNumber\": \"0912345678\",\n  \"roleCode\": \"ADMIN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Users"
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Admin Updated\",\n  \"phoneNumber\": \"0912345678\",\n  \"isActive\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/Users/2"
+          }
+        },
+        {
+          "name": "Delete",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/Users/2" }
         }
       ]
     },
@@ -131,104 +169,150 @@
           "name": "Get List",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/Employees?page=1&pageSize=10",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "Employees"
-              ],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "pageSize", "value": "10" }
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test('Response success true', function () { var b = pm.response.json(); pm.expect(b.success).to.eql(true); });"
-                ]
-              }
-            }
-          ]
+            "url": "{{baseUrl}}/api/Employees?page=1&pageSize=10&search=&departmentId=&positionId=&status=&sortBy=fullName&sortDir=asc"
+          }
+        },
+        {
+          "name": "Get By Id",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/Employees/1" }
         },
         {
           "name": "Create",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"email\": \"nv.a@example.com\",\n  \"phoneNumber\": \"0912345678\",\n  \"departmentId\": 1,\n  \"positionId\": 1\n}"
+              "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"email\": \"nv.a@example.com\",\n  \"phoneNumber\": \"0912345678\",\n  \"dateOfBirth\": \"1998-01-15\",\n  \"gender\": \"Male\",\n  \"address\": \"Ha Noi\",\n  \"departmentId\": 1,\n  \"positionId\": 3,\n  \"hireDate\": \"2026-01-01\",\n  \"status\": \"Working\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/Employees",
-              "host": ["{{baseUrl}}"],
-              "path": ["api","Employees"]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 201 or 200', function () { pm.expect([200,201]).to.include(pm.response.code); });",
-                  "pm.test('Response success true', function () { var b = pm.response.json(); pm.expect(b.success).to.eql(true); });"
-                ]
-              }
-            }
-          ]
+            "url": "{{baseUrl}}/api/Employees"
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyen Van A Updated\",\n  \"email\": \"nv.a@example.com\",\n  \"phoneNumber\": \"0912345678\",\n  \"departmentId\": 1,\n  \"positionId\": 3,\n  \"hireDate\": \"2026-01-01\",\n  \"status\": \"Working\",\n  \"isActive\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/Employees/1"
+          }
+        },
+        {
+          "name": "Soft Delete",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/Employees/1" }
+        },
+        {
+          "name": "Restore",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/api/Employees/1/restore" }
         }
+      ]
+    },
+    {
+      "name": "Departments",
+      "item": [
+        { "name": "Get List", "request": { "method": "GET", "url": "{{baseUrl}}/api/Departments?page=1&pageSize=20" } },
+        { "name": "Get By Id", "request": { "method": "GET", "url": "{{baseUrl}}/api/Departments/1" } },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"QA\",\n  \"name\": \"Quality Assurance\",\n  \"description\": \"QA team\",\n  \"isActive\": true\n}" },
+            "url": "{{baseUrl}}/api/Departments"
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"QA\",\n  \"name\": \"Quality Assurance\",\n  \"description\": \"Updated\",\n  \"isActive\": true\n}" },
+            "url": "{{baseUrl}}/api/Departments/4"
+          }
+        },
+        { "name": "Delete", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/Departments/4" } }
+      ]
+    },
+    {
+      "name": "Positions",
+      "item": [
+        { "name": "Get List", "request": { "method": "GET", "url": "{{baseUrl}}/api/Positions?page=1&pageSize=20" } },
+        { "name": "Get By Id", "request": { "method": "GET", "url": "{{baseUrl}}/api/Positions/1" } },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"BA\",\n  \"name\": \"Business Analyst\",\n  \"description\": \"BA\",\n  \"level\": 3,\n  \"isActive\": true\n}" },
+            "url": "{{baseUrl}}/api/Positions"
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"BA\",\n  \"name\": \"Business Analyst\",\n  \"description\": \"Updated\",\n  \"level\": 3,\n  \"isActive\": true\n}" },
+            "url": "{{baseUrl}}/api/Positions/5"
+          }
+        },
+        { "name": "Delete", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/Positions/5" } }
       ]
     },
     {
       "name": "Profile",
       "item": [
+        { "name": "Get My Profile", "request": { "method": "GET", "url": "{{baseUrl}}/api/Profile" } },
         {
-          "name": "Get My Profile",
+          "name": "Update Profile",
           "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrl}}/api/Profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api","Profile"]
-            }
-          },
-          "response": []
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"phoneNumber\": \"0912345678\",\n  \"dateOfBirth\": \"1998-01-15\",\n  \"gender\": \"Male\",\n  \"address\": \"Ha Noi\"\n}"
+            },
+            "url": "{{baseUrl}}/api/Profile"
+          }
         },
         {
           "name": "Upload Avatar",
           "request": {
             "method": "POST",
-            "header": [],
             "body": {
               "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": []
-                }
-              ]
+              "formdata": [{ "key": "file", "type": "file", "src": [] }]
             },
-            "url": {
-              "raw": "{{baseUrl}}/api/Profile/avatar",
-              "host": ["{{baseUrl}}"],
-              "path": ["api","Profile","avatar"]
-            }
-          },
-          "response": []
+            "url": "{{baseUrl}}/api/Profile/avatar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        { "name": "Get Stats", "request": { "method": "GET", "url": "{{baseUrl}}/api/Dashboard" } }
+      ]
+    },
+    {
+      "name": "AuditLogs",
+      "item": [
+        { "name": "Get List", "request": { "method": "GET", "url": "{{baseUrl}}/api/AuditLogs?page=1&pageSize=20" } }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
         }
       ]
     }

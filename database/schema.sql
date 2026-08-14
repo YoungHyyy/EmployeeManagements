@@ -275,6 +275,7 @@ CREATE INDEX `IX_Employees_HireDate` ON `Employees` (`HireDate`, `CreatedAt`);
 CREATE INDEX `IX_LeaveRequests_Employee` ON `LeaveRequests` (`EmployeeId`, `Status`);
 CREATE INDEX `IX_Attendances_EmployeeDate` ON `Attendances` (`EmployeeId`, `WorkDate`);
 CREATE INDEX `IX_AuditLogs_UserId` ON `AuditLogs` (`UserId`, `CreatedAt`);
+CREATE INDEX `IX_RefreshTokens_UserId` ON `RefreshTokens` (`UserId`, `IsRevoked`, `IsDeleted`);
 
 -- ==============================================================================
 -- SEED DATA
@@ -313,24 +314,25 @@ INSERT INTO `Positions` (`Code`, `Name`, `Description`, `Level`) VALUES
 ('DEV', 'Developer', 'Developer', 3),
 ('HR', 'HR Executive', 'HR executive', 3);
 
+-- Email: admin@example.com | Password: Admin123@
 INSERT INTO `Users` (`UserName`, `Email`, `PasswordHash`, `FullName`, `PhoneNumber`) VALUES
-('admin', 'admin@company.com', '$2a$11$qRzS68z64Cq.0.5vDq/u3.eP9hGgM3P1XUqL5LwH.oZ8Kx3J8dGq.', 'System Administrator', '0987654321');
+('admin', 'admin@example.com', '$2a$11$HUOb4SsRKq8fU9ArecSNFOtM6rKTR2ePj7kbzviYpc9DEm6NaCpn2', 'System Administrator', '0987654321');
 
 INSERT INTO `UserRoles` (`UserId`, `RoleId`)
 SELECT u.Id, r.Id
 FROM `Users` u
 JOIN `Roles` r ON r.Code = 'ADMIN'
-WHERE u.Email = 'admin@company.com';
+WHERE u.Email = 'admin@example.com';
 
 INSERT INTO `Employees` (
     `UserId`, `DepartmentId`, `PositionId`, `EmployeeCode`, `FullName`, `Email`, `PhoneNumber`, `DateOfBirth`, `Gender`, `HireDate`, `Status`, `Salary`
 ) VALUES (
-    (SELECT Id FROM `Users` WHERE Email = 'admin@company.com'),
+    (SELECT Id FROM `Users` WHERE Email = 'admin@example.com'),
     (SELECT Id FROM `Departments` WHERE Code = 'BOD'),
     (SELECT Id FROM `Positions` WHERE Code = 'DIR'),
     'EMP00001',
     'System Administrator',
-    'admin@company.com',
+    'admin@example.com',
     '0987654321',
     '1990-01-01',
     'Male',

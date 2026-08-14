@@ -35,6 +35,18 @@ public class ControllerAuthorizationTests
     }
 
     [Fact]
+    public void UsersController_RequiresAdminOnlyPolicy()
+    {
+        var authorizeAttribute = typeof(UsersController)
+            .GetCustomAttributes(typeof(AuthorizeAttribute), true)
+            .OfType<AuthorizeAttribute>()
+            .SingleOrDefault();
+
+        Assert.NotNull(authorizeAttribute);
+        Assert.Equal(AuthorizationPolicies.AdminOnly, authorizeAttribute!.Policy);
+    }
+
+    [Fact]
     public void DepartmentsCreateAction_RequiresAdminOnlyPolicy()
     {
         var method = typeof(DepartmentsController).GetMethod(nameof(DepartmentsController.Create));

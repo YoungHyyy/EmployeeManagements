@@ -10,21 +10,26 @@ namespace EmployeeManagement.Application.Services
         private readonly IUserRepository _userRepo;
         private readonly IRoleRepository _roleRepository;
         private readonly IAuditLogService _auditLogService;
+        private readonly IRefreshTokenRepository? _refreshTokenRepository;
+        private readonly IEmployeeRepository? _employeeRepository;
 
         public UserService(
             IUserRepository userRepo,
             IRoleRepository roleRepository,
-            IAuditLogService? auditLogService = null)
+            IAuditLogService? auditLogService = null,
+            IRefreshTokenRepository? refreshTokenRepository = null,
+            IEmployeeRepository? employeeRepository = null)
         {
             _userRepo = userRepo;
             _roleRepository = roleRepository;
             _auditLogService = auditLogService ?? new NoOpAuditLogService();
+            _refreshTokenRepository = refreshTokenRepository;
+            _employeeRepository = employeeRepository;
         }
 
         public async Task<UserResponse> CreateAsync(CreateUserRequest request, int? actorUserId = null)
         {
-            var existing = await _userRepo.GetByEmailAsync(request.Email);
-            if (existing != null)
+            if (await _userRepo.ExistsByEmailAsync(request.Email))
             {
                 throw new InvalidOperationException("Email đã tồn tại");
             }
@@ -38,6 +43,12 @@ namespace EmployeeManagement.Application.Services
                 throw new InvalidOperationException("Role không hợp lệ. Chỉ chấp nhận ADMIN hoặc EMPLOYEE");
             }
 
+            var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
+            if (!roleId.HasValue)
+            {
+                throw new InvalidOperationException($"Không tìm thấy role {roleCode} trong hệ thống");
+            }
+
             var user = new User
             {
                 FullName = request.FullName,
@@ -46,15 +57,10 @@ namespace EmployeeManagement.Application.Services
                 PhoneNumber = request.PhoneNumber,
                 IsActive = true
             };
-            var id = await _userRepo.CreateAsync(user);
 
-            var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
-            if (!roleId.HasValue)
-            {
-                throw new InvalidOperationException($"Không tìm thấy role {roleCode} trong hệ thống");
-            }
-
-            await _roleRepository.AssignRoleAsync(id, roleId.Value);
+            // Users + UserRoles cùng transaction — gán role fail thì không lưu user
+            var id = await _userRepo.CreateWithRoleAsync(user, roleId.Value);
+            await TryLinkEmployeeByEmailAsync(id, request.Email);
 
             var created = await _userRepo.GetByIdAsync(id);
 
@@ -83,6 +89,11 @@ namespace EmployeeManagement.Application.Services
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
 
             await _userRepo.SoftDeleteAsync(user.Id);
+
+            if (_refreshTokenRepository != null)
+            {
+                await _refreshTokenRepository.RevokeAllUserTokensAsync(id);
+            }
 
             await _auditLogService.WriteAsync(new AuditLogWriteRequest
             {
@@ -113,10 +124,16 @@ namespace EmployeeManagement.Application.Services
             var user = await _userRepo.GetByIdAsync(id)
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
 
+            var wasActive = user.IsActive;
             user.FullName = request.FullName;
             user.PhoneNumber = request.PhoneNumber;
             user.IsActive = request.IsActive;
             await _userRepo.UpdateAsync(user);
+
+            if (wasActive && !request.IsActive && _refreshTokenRepository != null)
+            {
+                await _refreshTokenRepository.RevokeAllUserTokensAsync(id);
+            }
 
             await _auditLogService.WriteAsync(new AuditLogWriteRequest
             {
@@ -127,6 +144,28 @@ namespace EmployeeManagement.Application.Services
                 EntityId = id.ToString(),
                 RequestPath = $"/api/Users/{id}"
             });
+        }
+
+        private async Task TryLinkEmployeeByEmailAsync(int userId, string email)
+        {
+            if (_employeeRepository == null)
+            {
+                return;
+            }
+
+            var employee = await _employeeRepository.GetByEmailAsync(email);
+            if (employee == null || employee.UserId.HasValue)
+            {
+                return;
+            }
+
+            var alreadyLinked = await _employeeRepository.GetByUserIdAsync(userId);
+            if (alreadyLinked != null)
+            {
+                return;
+            }
+
+            await _employeeRepository.LinkUserAsync(employee.Id, userId);
         }
 
         private static UserResponse Map(User u) => new UserResponse

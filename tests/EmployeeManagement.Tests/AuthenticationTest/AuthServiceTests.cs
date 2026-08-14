@@ -26,6 +26,8 @@ namespace EmployeeManagement.Tests.Authentication
             _refreshTokenRepoMock = new Mock<IRefreshTokenRepository>();
             _tokenServiceMock = new Mock<ITokenService>();
             _tokenServiceMock.Setup(x => x.GenerateAccessToken(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>())).Returns("token");
+            _tokenServiceMock.Setup(x => x.GetAccessTokenExpiresMinutes()).Returns(60);
+            _tokenServiceMock.Setup(x => x.GetRefreshTokenDays()).Returns(7);
 
             _authService = new AuthService(
                 _userRepoMock.Object,
@@ -111,6 +113,35 @@ namespace EmployeeManagement.Tests.Authentication
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
             result.Message.Should().Be("Refresh token không hợp lệ");
+        }
+
+        [Fact]
+        public async Task RefreshTokenAsync_InactiveUser_ReturnsFailureAndRevokesTokens()
+        {
+            var storedToken = new RefreshToken
+            {
+                Id = 1,
+                UserId = 10,
+                TokenHash = "some_hash",
+                IsRevoked = false,
+                IsUsed = false,
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
+            };
+
+            _refreshTokenRepoMock.Setup(r => r.GetByTokenHashAsync(It.IsAny<string>()))
+                .ReturnsAsync(storedToken);
+            _userRepoMock.Setup(r => r.GetByIdAsync(10))
+                .ReturnsAsync(new User { Id = 10, Email = "locked@mail.com", IsActive = false });
+            _refreshTokenRepoMock.Setup(r => r.RevokeAllUserTokensAsync(10))
+                .Returns(Task.CompletedTask);
+
+            var result = await _authService.RefreshTokenAsync("still_valid_token");
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be("Tài khoản đã bị vô hiệu hóa");
+            result.Data.Should().BeNull();
+            _refreshTokenRepoMock.Verify(r => r.RevokeAllUserTokensAsync(10), Times.Once);
+            _refreshTokenRepoMock.Verify(r => r.AddAsync(It.IsAny<RefreshToken>()), Times.Never);
         }
 
         [Fact]

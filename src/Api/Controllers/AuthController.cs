@@ -25,13 +25,13 @@ namespace EmployeeManagement.Api.Controllers
 
         [AllowAnonymous]
         [HttpPost("register")]
-        [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var result = await _authService.RegisterAsync(request);
             return result.Success
-                ? StatusCode(StatusCodes.Status200OK, result)
+                ? StatusCode(StatusCodes.Status201Created, result)
                 : StatusCode(StatusCodes.Status400BadRequest, new AuthResponse
                 {
                     Success = false,
@@ -68,9 +68,9 @@ namespace EmployeeManagement.Api.Controllers
         [HttpPost("refresh-token")]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
         {
-            var result = await _authService.RefreshTokenAsync(refreshToken);
+            var result = await _authService.RefreshTokenAsync(request.RefreshToken);
             return result.Success
                 ? StatusCode(StatusCodes.Status200OK, result)
                 : StatusCode(StatusCodes.Status400BadRequest, new AuthResponse
@@ -83,9 +83,9 @@ namespace EmployeeManagement.Api.Controllers
         [AllowAnonymous]
         [HttpPost("logout")]
         [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-        public async Task<IActionResult> Logout([FromBody] string refreshToken)
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-            var result = await _authService.LogoutAsync(refreshToken);
+            var result = await _authService.LogoutAsync(request.RefreshToken);
             return Ok(result);
         }
 

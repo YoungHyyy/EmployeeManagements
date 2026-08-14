@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
@@ -9,11 +10,22 @@ public class EmployeeService : IEmployeeService
 {
     private readonly IEmployeeRepository _repository;
     private readonly IAuditLogService _auditLogService;
+    private readonly IUserRepository? _userRepository;
+    private readonly IDepartmentRepository? _departmentRepository;
+    private readonly IPositionRepository? _positionRepository;
 
-    public EmployeeService(IEmployeeRepository repository, IAuditLogService? auditLogService = null)
+    public EmployeeService(
+        IEmployeeRepository repository,
+        IAuditLogService? auditLogService = null,
+        IUserRepository? userRepository = null,
+        IDepartmentRepository? departmentRepository = null,
+        IPositionRepository? positionRepository = null)
     {
         _repository = repository;
         _auditLogService = auditLogService ?? new NoOpAuditLogService();
+        _userRepository = userRepository;
+        _departmentRepository = departmentRepository;
+        _positionRepository = positionRepository;
     }
 
     public async Task<EmployeeListResult> GetAllAsync(EmployeeListQuery query)
@@ -40,9 +52,17 @@ public class EmployeeService : IEmployeeService
 
     public async Task<EmployeeDto> CreateAsync(EmployeeDto request, int? actorUserId = null)
     {
+        await EnsureDepartmentAndPositionAsync(request.DepartmentId, request.PositionId);
+
+        if (await _repository.ExistsByEmailAsync(request.Email))
+        {
+            throw new InvalidOperationException(ApiMessages.EmployeeEmailExists);
+        }
+
         var entity = new Employee
         {
-            EmployeeCode = GenerateEmployeeCode(),
+            UserId = await ResolveUserIdForEmailAsync(request.Email),
+            EmployeeCode = await GenerateUniqueEmployeeCodeAsync(),
             FullName = request.FullName,
             Email = request.Email,
             PhoneNumber = request.PhoneNumber,
@@ -79,10 +99,11 @@ public class EmployeeService : IEmployeeService
         var existing = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy nhân viên");
 
-        // Defense-in-depth: email unique excluding current employee
+        await EnsureDepartmentAndPositionAsync(request.DepartmentId, request.PositionId);
+
         if (await _repository.ExistsByEmailAsync(request.Email, excludeEmployeeId: id))
         {
-            throw new InvalidOperationException("Email đã tồn tại trong hệ thống");
+            throw new InvalidOperationException(ApiMessages.EmployeeEmailExists);
         }
 
         existing.FullName = request.FullName;
@@ -131,8 +152,12 @@ public class EmployeeService : IEmployeeService
 
     public async Task RestoreAsync(int id, int? actorUserId = null)
     {
-        // Restore: bản ghi có thể đang soft-deleted → GetById (IsDeleted=0) sẽ null
-        // SoftDeleteRepository.RestoreAsync vẫn chạy; kiểm tra tồn tại qua repo raw nếu cần
+        // GetById lọc IsDeleted=0 nên không dùng được cho restore
+        if (!await _repository.ExistsIncludingDeletedAsync(id))
+        {
+            throw new KeyNotFoundException(ApiMessages.EmployeeNotFound);
+        }
+
         await _repository.RestoreAsync(id);
 
         await _auditLogService.WriteAsync(new AuditLogWriteRequest
@@ -149,6 +174,7 @@ public class EmployeeService : IEmployeeService
     private static EmployeeDto Map(Employee employee) => new()
     {
         Id = employee.Id,
+        UserId = employee.UserId,
         EmployeeCode = employee.EmployeeCode,
         FullName = employee.FullName,
         Email = employee.Email,
@@ -164,11 +190,54 @@ public class EmployeeService : IEmployeeService
         IsActive = employee.IsActive
     };
 
-    private static string GenerateEmployeeCode()
+    private async Task EnsureDepartmentAndPositionAsync(int departmentId, int positionId)
     {
-        var date = DateTime.UtcNow.ToString("yyMMdd");
-        var random = new Random().Next(1000, 9999);
-        return $"EMP{date}{random}";
+        if (_departmentRepository != null && !await _departmentRepository.ExistsAsync(departmentId))
+        {
+            throw new InvalidOperationException(ApiMessages.DepartmentNotFound);
+        }
+
+        if (_positionRepository != null && !await _positionRepository.ExistsAsync(positionId))
+        {
+            throw new InvalidOperationException(ApiMessages.PositionNotFound);
+        }
+    }
+
+    private async Task<int?> ResolveUserIdForEmailAsync(string email)
+    {
+        if (_userRepository == null)
+        {
+            return null;
+        }
+
+        var user = await _userRepository.GetByEmailAsync(email);
+        if (user == null)
+        {
+            return null;
+        }
+
+        var linked = await _repository.GetByUserIdAsync(user.Id);
+        if (linked != null)
+        {
+            throw new InvalidOperationException("Tài khoản này đã gắn với nhân viên khác");
+        }
+
+        return user.Id;
+    }
+
+    private async Task<string> GenerateUniqueEmployeeCodeAsync()
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            var date = DateTime.UtcNow.ToString("yyMMdd");
+            var code = $"EMP{date}{RandomNumberGenerator.GetInt32(1000, 10000)}";
+            if (!await _repository.ExistsByEmployeeCodeAsync(code))
+            {
+                return code;
+            }
+        }
+
+        throw new InvalidOperationException("Không thể sinh mã nhân viên, vui lòng thử lại");
     }
 
     private sealed class NoOpAuditLogService : IAuditLogService

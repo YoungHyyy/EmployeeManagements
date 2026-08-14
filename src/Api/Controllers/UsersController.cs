@@ -38,9 +38,12 @@ namespace EmployeeManagement.Api.Controllers
                 : Ok(u);
         }
 
+        /// <summary>Chỉ Admin. roleCode = ADMIN hoặc EMPLOYEE. Fail → không lưu user.</summary>
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest req)
         {
             var created = await _userService.CreateAsync(req, GetCurrentUserId());

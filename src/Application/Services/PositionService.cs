@@ -80,13 +80,7 @@ public class PositionService : IPositionService
         _ = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException(ApiMessages.PositionNotFound);
 
-        var (linkedEmployees, total) = await _employeeRepository.ListAsync(new EmployeeListQuery
-        {
-            Page = 1,
-            PageSize = 1,
-            PositionId = id
-        });
-        if (total > 0 || linkedEmployees.Any())
+        if (await _employeeRepository.ExistsByPositionIdAsync(id))
         {
             throw new InvalidOperationException(ApiMessages.PositionHasEmployees);
         }

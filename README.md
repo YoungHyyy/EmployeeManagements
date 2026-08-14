@@ -199,7 +199,7 @@ Compose tự mount `database/schema.sql` và `seed-admin-user.sql` khi khởi t�
 | Role | Quyền |
 |------|--------|
 | **ADMIN** | Quản lý Users, Employees, Departments, Positions, Dashboard |
-| **EMPLOYEE** | Profile (xem/sửa), đổi mật khẩu, upload avatar; xem danh sách phòng ban (GET) |
+| **EMPLOYEE** | Profile (xem/sửa hồ sơ của mình, gồm field nhân sự nếu đã gắn Employee), đổi mật khẩu, upload avatar; xem danh mục phòng ban/chức vụ (GET) |
 
 ### 7.4. Tạo tài khoản
 
@@ -292,7 +292,7 @@ Không xóa phòng ban còn nhân viên.
 
 ### Positions — `/api/Positions` (Admin)
 
-CRUD chức vụ. Không xóa chức vụ còn nhân viên.
+GET: Admin hoặc Employee. POST/PUT/DELETE: Admin. Không xóa chức vụ còn nhân viên.
 
 ### Profile — `/api/Profile` (Admin hoặc Employee)
 
@@ -348,7 +348,19 @@ LIMIT 20;
 }
 ```
 
-Auth (`login`/`register`/…) dùng `AuthResponse`: `success`, `message`, `accessToken`, `refreshToken`, `expiresAt`.
+Auth (`login`/`register`/…) cũng dùng wrapper chuẩn; token nằm trong `data`:
+
+```json
+{
+  "success": true,
+  "message": "Đăng nhập thành công",
+  "data": {
+    "accessToken": "...",
+    "refreshToken": "...",
+    "expiresAt": 1710000000
+  }
+}
+```
 
 ### Bảng mã HTTP
 
@@ -380,6 +392,7 @@ Auth (`login`/`register`/…) dùng `AuthResponse`: `success`, `message`, `acces
 - Email unique  
 - Mã nhân viên tự sinh  
 - Chỉ Admin tạo tài khoản (qua `/api/Users`); register public chỉ Employee  
+- User và Employee gắn bằng `Employees.UserId` (cùng email thì tự link khi register / tạo user / tạo NV)  
 - Employee không sửa Role  
 - Không tự xóa tài khoản của mình  
 
@@ -401,7 +414,7 @@ dotnet test EmployeeManagement.sln
 ```
 
 - Framework: **xUnit** + **Moq**  
-- Hiện tại: **33** unit tests (vượt yêu cầu tối thiểu 10)  
+- Hiện tại: **75** unit tests (vượt yêu cầu tối thiểu 10)  
 - Thư mục: `tests/EmployeeManagement.Tests`
 
 ---

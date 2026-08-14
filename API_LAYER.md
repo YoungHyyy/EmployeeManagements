@@ -29,7 +29,7 @@ src/Api/
  │    ├── PositionsController.cs
  │    ├── ProfileController.cs
  │    ├── UsersController.cs
- │    └── WeatherForecastController.cs
+ │    └── AuditLogsController.cs
  ├── Extensions/
  │    ├── ValidationExtensions.cs
  │    └── ValidationServiceExtensions.cs
@@ -37,12 +37,13 @@ src/Api/
  │    └── ExceptionMiddleware.cs
  ├── Properties/
  │    └── launchSettings.json
+ ├── Filters/
+ ├── Swagger/
  ├── appsettings.Development.json
  ├── appsettings.json
  ├── EmployeeManagement.Api.csproj
  ├── EmployeeManagement.Api.http
- ├── Program.cs
- └── WeatherForecast.cs
+ └── Program.cs
 ```
 
 ---
@@ -87,7 +88,11 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
   - `POST /api/auth/refresh-token`: Cấp Access Token mới từ Refresh Token.
   - `POST /api/auth/logout`: Đăng xuất tài khoản.
   - `POST /api/auth/change-password`: Đổi mật khẩu cho người dùng hiện tại.
-  - `POST /api/auth/forgot-password`: Yêu cầu gửi mã OTP quên mật khẩu.
+  - `POST /api/auth/forgot-password`: Yêu cầu gửi mã OTP quên mật khẩu (OTP giả lập).
+  - `POST /api/auth/reset-password`: Đặt lại mật khẩu bằng OTP.
+  - Refresh/Logout nhận body `{ "refreshToken": "..." }`.
+  - Auth response: `{ success, message, data: { accessToken, refreshToken, expiresAt } }`.
+  - Register thành công trả **201**.
 
 ### 4.2 `EmployeesController.cs`
 * **Đường dẫn gốc:** `/api/employees`
@@ -114,7 +119,7 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
 ### 4.4 `PositionsController.cs`
 * **Đường dẫn gốc:** `/api/positions`
 * **Nhiệm vụ:** Quản lý danh mục Chức vụ.
-* **Quyền truy cập:** `AdminOnly` cho tất cả các phương thức.
+* **Quyền truy cập:** `EmployeeOrAdmin` cho `GET`, `AdminOnly` cho `POST`, `PUT`, `DELETE`.
 * **Danh sách Endpoints:**
   - `GET /api/positions`: Lấy danh sách chức vụ (phân trang).
   - `GET /api/positions/{id}`: Lấy chi tiết chức vụ theo ID.
@@ -127,9 +132,9 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
 * **Nhiệm vụ:** Quản lý hồ sơ người dùng hiện tại.
 * **Quyền truy cập:** `EmployeeOrAdmin`.
 * **Danh sách Endpoints:**
-  - `GET /api/profile`: Lấy thông tin profile của người dùng đang đăng nhập.
-  - `PUT /api/profile`: Cập nhật thông tin cá nhân của người dùng đang đăng nhập.
-  - `POST /api/profile/avatar`: Tải ảnh đại diện lên cho người dùng đang đăng nhập.
+  - `GET /api/profile`: Lấy hồ sơ user + nhân viên (nếu đã gắn `UserId` hoặc cùng email).
+  - `PUT /api/profile`: Cập nhật họ tên, SĐT, ngày sinh, giới tính, địa chỉ (đồng bộ Users + Employees).
+  - `POST /api/profile/avatar`: Upload avatar jpg/png ≤ 2MB (cập nhật cả User và Employee).
 
 ### 4.6 `DashboardController.cs`
 * **Đường dẫn gốc:** `/api/dashboard`
@@ -145,16 +150,16 @@ Tất cả các Controller đều kế thừa từ `ControllerBase` và được
 * **Danh sách Endpoints:**
   - `GET /api/users`: Lấy danh sách người dùng hệ thống (phân trang).
   - `GET /api/users/{id}`: Lấy thông tin người dùng theo ID.
-  - `POST /api/users`: Tạo tài khoản người dùng mới (Admin không được tạo tài khoản Admin khác bằng `RoleCode=ADMIN`).
+  - `POST /api/users`: Tạo tài khoản (`roleCode` = `ADMIN` hoặc `EMPLOYEE`). Cùng email với Employee chưa gắn thì tự set `Employees.UserId`.
   - `PUT /api/users/{id}`: Cập nhật thông tin người dùng.
-  - `DELETE /api/users/{id}`: Xóa tài khoản người dùng (không cho xóa chính mình).
+  - `DELETE /api/users/{id}`: Xóa tài khoản (không cho xóa chính mình; thu hồi refresh token).
 
-### 4.8 `WeatherForecastController.cs`
-* **Đường dẫn gốc:** `/WeatherForecast`
-* **Nhiệm vụ:** Endpoint mẫu mặc định từ dự án ASP.NET Core template.
-* **Quyền truy cập:** Mở.
+### 4.8 `AuditLogsController.cs`
+* **Đường dẫn gốc:** `/api/auditlogs`
+* **Nhiệm vụ:** Xem nhật ký hệ thống (chỉ đọc).
+* **Quyền truy cập:** `AdminOnly`.
 * **Danh sách Endpoints:**
-  - `GET /WeatherForecast`: Lấy dữ liệu mẫu dự báo thời tiết.
+  - `GET /api/auditlogs`: Danh sách audit log (phân trang + filter).
 
 ---
 

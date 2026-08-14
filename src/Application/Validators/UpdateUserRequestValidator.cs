@@ -4,9 +4,9 @@ using FluentValidation;
 
 namespace EmployeeManagement.Application.Validators;
 
-public class ProfileUpdateRequestValidator : AbstractValidator<ProfileUpdateRequest>
+public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
 {
-    public ProfileUpdateRequestValidator()
+    public UpdateUserRequestValidator()
     {
         RuleFor(x => x.FullName)
             .NotEmpty().WithMessage("Họ tên là bắt buộc")
@@ -16,12 +16,5 @@ public class ProfileUpdateRequestValidator : AbstractValidator<ProfileUpdateRequ
             .Matches(ValidationRules.VietnamPhone)
             .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber))
             .WithMessage(ValidationRules.VietnamPhoneMessage);
-
-        RuleFor(x => x.Gender)
-            .Must(g => string.IsNullOrWhiteSpace(g) || new[] { "Male", "Female", "Other" }.Contains(g))
-            .WithMessage("Giới tính không hợp lệ");
-
-        RuleFor(x => x.Address)
-            .MaximumLength(500).WithMessage("Địa chỉ tối đa 500 ký tự");
     }
 }

@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using EmployeeManagement.Application.Interfaces;
 using FluentValidation;
@@ -23,9 +24,9 @@ public class EmployeeDtoValidator : AbstractValidator<EmployeeDto>
             .WithMessage("Email đã tồn tại trong hệ thống");
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^(0)(3[2-9]|5[6|8|9]|7[0|6-9]|8[1-9]|9[0-9])[0-9]{7}$")
+            .Matches(ValidationRules.VietnamPhone)
             .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber))
-            .WithMessage("Số điện thoại không đúng định dạng Việt Nam");
+            .WithMessage(ValidationRules.VietnamPhoneMessage);
 
         RuleFor(x => x.DepartmentId)
             .GreaterThan(0).WithMessage("Phòng ban là bắt buộc");

@@ -18,8 +18,8 @@ public class DashboardRepository : BaseRepository, IDashboardRepository
                 COALESCE(SUM(CASE WHEN Status = 'Working'  THEN 1 ELSE 0 END), 0) AS ActiveEmployees,
                 COALESCE(SUM(CASE WHEN Status = 'Resigned' THEN 1 ELSE 0 END), 0) AS ResignedEmployees,
                 COALESCE(SUM(CASE
-                    WHEN MONTH(CreatedAt) = MONTH(CURRENT_DATE)
-                     AND YEAR(CreatedAt)  = YEAR(CURRENT_DATE)
+                    WHEN MONTH(HireDate) = MONTH(CURRENT_DATE)
+                     AND YEAR(HireDate)  = YEAR(CURRENT_DATE)
                     THEN 1 ELSE 0 END), 0) AS NewEmployeesThisMonth
             FROM Employees
             WHERE IsDeleted = 0");

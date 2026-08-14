@@ -78,13 +78,7 @@ public class DepartmentService : IDepartmentService
         _ = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException(ApiMessages.DepartmentNotFound);
 
-        var (linkedEmployees, total) = await _employeeRepository.ListAsync(new EmployeeListQuery
-        {
-            Page = 1,
-            PageSize = 1,
-            DepartmentId = id
-        });
-        if (total > 0 || linkedEmployees.Any())
+        if (await _employeeRepository.ExistsByDepartmentIdAsync(id))
         {
             throw new InvalidOperationException(ApiMessages.DepartmentHasEmployees);
         }

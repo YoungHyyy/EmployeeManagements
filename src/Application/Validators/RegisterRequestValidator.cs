@@ -1,3 +1,4 @@
+using EmployeeManagement.Application.Common;
 using EmployeeManagement.Application.DTOs;
 using FluentValidation;
 
@@ -16,7 +17,8 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
             .EmailAddress().WithMessage("Email không đúng định dạng");
 
         RuleFor(x => x.PhoneNumber)
-            .Matches(@"^(0)(3|5|7|8|9)\d{8}$").WithMessage("Số điện thoại không đúng định dạng Việt Nam");
+            .NotEmpty().WithMessage("Số điện thoại là bắt buộc")
+            .Matches(ValidationRules.VietnamPhone).WithMessage(ValidationRules.VietnamPhoneMessage);
 
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Mật khẩu là bắt buộc")

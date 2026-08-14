@@ -1,9 +1,16 @@
 using System.Text;
+using System.Text.Json;
 
 namespace EmployeeManagement.Api.Middleware;
 
 public class RequestLoggingMiddleware
 {
+    private static readonly HashSet<string> SensitiveFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "password", "confirmPassword", "currentPassword", "newPassword",
+        "accessToken", "refreshToken", "otpCode", "token", "otp"
+    };
+
     private readonly RequestDelegate _next;
     private readonly ILogger<RequestLoggingMiddleware> _logger;
 
@@ -25,7 +32,11 @@ public class RequestLoggingMiddleware
             context.Request.Body.Position = 0;
         }
 
-        _logger.LogInformation("Request {Method} {Path} | Body: {Body}", context.Request.Method, context.Request.Path, requestBody);
+        _logger.LogInformation(
+            "Request {Method} {Path} | Body: {Body}",
+            context.Request.Method,
+            context.Request.Path,
+            MaskSensitive(requestBody));
 
         var originalBodyStream = context.Response.Body;
         using var responseBody = new MemoryStream();
@@ -43,7 +54,76 @@ public class RequestLoggingMiddleware
             await responseBody.CopyToAsync(originalBodyStream);
             context.Response.Body = originalBodyStream;
 
-            _logger.LogInformation("Response {StatusCode} {Path} | Body: {Body}", context.Response.StatusCode, context.Request.Path, responseBodyText);
+            _logger.LogInformation(
+                "Response {StatusCode} {Path} | Body: {Body}",
+                context.Response.StatusCode,
+                context.Request.Path,
+                MaskSensitive(responseBodyText));
+        }
+    }
+
+    public static string MaskSensitive(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return body;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            return MaskElement(doc.RootElement);
+        }
+        catch (JsonException)
+        {
+            return body;
+        }
+    }
+
+    private static string MaskElement(JsonElement element)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            WriteMasked(writer, element);
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static void WriteMasked(Utf8JsonWriter writer, JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (var prop in element.EnumerateObject())
+                {
+                    writer.WritePropertyName(prop.Name);
+                    if (SensitiveFields.Contains(prop.Name))
+                    {
+                        writer.WriteStringValue("***");
+                    }
+                    else
+                    {
+                        WriteMasked(writer, prop.Value);
+                    }
+                }
+
+                writer.WriteEndObject();
+                break;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (var item in element.EnumerateArray())
+                {
+                    WriteMasked(writer, item);
+                }
+
+                writer.WriteEndArray();
+                break;
+            default:
+                element.WriteTo(writer);
+                break;
         }
     }
 }

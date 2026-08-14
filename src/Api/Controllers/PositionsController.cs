@@ -8,7 +8,6 @@ namespace EmployeeManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class PositionsController : ControllerBase
 {
     private readonly IPositionService _service;
@@ -18,6 +17,7 @@ public class PositionsController : ControllerBase
         _service = service;
     }
 
+    [Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
@@ -26,6 +26,7 @@ public class PositionsController : ControllerBase
         return Ok(items);
     }
 
+    [Authorize(Policy = AuthorizationPolicies.EmployeeOrAdmin)]
     [HttpGet("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -37,6 +38,7 @@ public class PositionsController : ControllerBase
             : Ok(item);
     }
 
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -46,6 +48,7 @@ public class PositionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpPut("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -55,6 +58,7 @@ public class PositionsController : ControllerBase
         return Ok(ApiResponse.Ok(message: "Cập nhật chức vụ thành công"));
     }
 
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

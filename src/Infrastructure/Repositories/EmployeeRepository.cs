@@ -65,7 +65,46 @@ public class EmployeeRepository : GenericRepository<Employee>, IEmployeeReposito
         return ListByFilterAsync(filter, orderBy);
     }
 
-    /// <summary>Đặc thù: check email trùng (case-insensitive) — helper base.</summary>
-    public Task<bool> ExistsByEmailAsync(string email, int? excludeEmployeeId = null)
-        => ExistsByFieldIgnoreCaseAsync(nameof(Employee.Email), email, excludeEmployeeId);
+    public Task<Employee?> GetByEmailAsync(string email)
+        => GetByFieldAsync(nameof(Employee.Email), email);
+
+    public Task<Employee?> GetByUserIdAsync(int userId)
+        => GetByFieldAsync(nameof(Employee.UserId), userId);
+
+    /// <summary>
+    /// Email unique trên cả bản ghi đã xóa mềm (khớp UNIQUE trên DB).
+    /// </summary>
+    public async Task<bool> ExistsByEmailAsync(string email, int? excludeEmployeeId = null)
+    {
+        var filter = CreateFilter(softDeleteOnly: false)
+            .EqualIgnoreCase(nameof(Employee.Email), email)
+            .NotEqual("Id", excludeEmployeeId);
+        return await CountByFilterAsync(filter) > 0;
+    }
+
+    public async Task<bool> ExistsByEmployeeCodeAsync(string code)
+    {
+        var filter = CreateFilter(softDeleteOnly: false)
+            .EqualIgnoreCase(nameof(Employee.EmployeeCode), code);
+        return await CountByFilterAsync(filter) > 0;
+    }
+
+    public async Task<bool> ExistsByDepartmentIdAsync(int departmentId)
+    {
+        var filter = CreateFilter().Equal(nameof(Employee.DepartmentId), departmentId);
+        return await CountByFilterAsync(filter) > 0;
+    }
+
+    public async Task<bool> ExistsByPositionIdAsync(int positionId)
+    {
+        var filter = CreateFilter().Equal(nameof(Employee.PositionId), positionId);
+        return await CountByFilterAsync(filter) > 0;
+    }
+
+    public Task LinkUserAsync(int employeeId, int userId)
+        => ExecuteAsync(
+            @"UPDATE Employees
+              SET UserId = @userId, UpdatedAt = NOW()
+              WHERE Id = @employeeId AND IsDeleted = 0",
+            new { employeeId, userId });
 }

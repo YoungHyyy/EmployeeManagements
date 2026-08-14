@@ -16,6 +16,7 @@ namespace EmployeeManagement.Application.Services
         private readonly IRefreshTokenRepository _refreshTokenRepository;
         private readonly ITokenService _tokenService;
         private readonly IAuditLogService _auditLogService;
+        private readonly IEmployeeRepository? _employeeRepository;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
@@ -24,7 +25,8 @@ namespace EmployeeManagement.Application.Services
             IRefreshTokenRepository refreshTokenRepository,
             ITokenService tokenService,
             IAuditLogService? auditLogService = null,
-            ILogger<AuthService>? logger = null)
+            ILogger<AuthService>? logger = null,
+            IEmployeeRepository? employeeRepository = null)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
@@ -32,6 +34,7 @@ namespace EmployeeManagement.Application.Services
             _tokenService = tokenService;
             _auditLogService = auditLogService ?? new NoOpAuditLogService();
             _logger = logger ?? NullLogger<AuthService>.Instance;
+            _employeeRepository = employeeRepository;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -39,9 +42,15 @@ namespace EmployeeManagement.Application.Services
             if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
                 return new AuthResponse { Success = false, Message = "Mật khẩu và mật khẩu xác nhận không khớp" };
 
-            var existingUser = await _userRepository.GetByEmailAsync(request.Email);
-            if (existingUser != null)
+            if (await _userRepository.ExistsByEmailAsync(request.Email))
                 return new AuthResponse { Success = false, Message = "Email đã tồn tại" };
+
+            const string roleCode = "EMPLOYEE";
+            var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
+            if (!roleId.HasValue)
+            {
+                return new AuthResponse { Success = false, Message = ApiMessages.RoleNotFound(roleCode) };
+            }
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             var user = new User
@@ -52,28 +61,10 @@ namespace EmployeeManagement.Application.Services
                 PhoneNumber = request.PhoneNumber,
                 IsActive = true
             };
-            var userId = await _userRepository.CreateAsync(user);
+            var userId = await _userRepository.CreateWithRoleAsync(user, roleId.Value);
+            await TryLinkEmployeeByEmailAsync(userId, request.Email);
 
-            const string roleCode = "EMPLOYEE";
-            var roleId = await _roleRepository.GetRoleIdByCodeAsync(roleCode);
-            if (roleId.HasValue)
-            {
-                await _roleRepository.AssignRoleAsync(userId, roleId.Value);
-            }
-
-            var accessToken = _tokenService.GenerateAccessToken(userId, request.Email, roleCode);
-            var rawRefreshToken = Guid.NewGuid().ToString("N");
-            var refreshTokenHash = HashToken(rawRefreshToken);
-
-            await _refreshTokenRepository.AddAsync(new RefreshToken
-            {
-                UserId = userId,
-                TokenHash = refreshTokenHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
-                IsUsed = false,
-                IsRevoked = false,
-                CreatedAt = DateTime.UtcNow
-            });
+            var tokens = await IssueTokensAsync(userId, request.Email, roleCode);
 
             await _auditLogService.WriteAsync(new AuditLogWriteRequest
             {
@@ -86,14 +77,7 @@ namespace EmployeeManagement.Application.Services
                 Details = $"Email={request.Email}"
             });
 
-            return new AuthResponse
-            {
-                Success = true,
-                Message = "Đăng ký thành công",
-                AccessToken = accessToken,
-                RefreshToken = rawRefreshToken,
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds()
-            };
+            return OkAuth("Đăng ký thành công", tokens);
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -130,20 +114,27 @@ namespace EmployeeManagement.Application.Services
                 return new AuthResponse { Success = false, Message = "Thông tin đăng nhập không hợp lệ" };
             }
 
-            var roleCode = await GetUserRoleCodeAsync(user.Id);
-            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roleCode);
-            var rawRefreshToken = Guid.NewGuid().ToString("N");
-            var refreshTokenHash = HashToken(rawRefreshToken);
-
-            await _refreshTokenRepository.AddAsync(new RefreshToken
+            if (!user.IsActive)
             {
-                UserId = user.Id,
-                TokenHash = refreshTokenHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
-                IsUsed = false,
-                IsRevoked = false,
-                CreatedAt = DateTime.UtcNow
-            });
+                _logger.LogWarning("Login failed for email {Email}: account disabled", request.Email);
+                await _auditLogService.WriteAsync(new AuditLogWriteRequest
+                {
+                    UserId = user.Id,
+                    Action = AuditActions.LoginFailed,
+                    Module = AuditModules.Auth,
+                    EntityName = "User",
+                    EntityId = user.Id.ToString(),
+                    RequestPath = "/api/Auth/login",
+                    Details = $"Email={request.Email}; Reason=AccountDisabled"
+                });
+                return new AuthResponse { Success = false, Message = ApiMessages.AccountDisabled };
+            }
+
+            user.LastLoginAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
+
+            var roleCode = await GetUserRoleCodeAsync(user.Id);
+            var tokens = await IssueTokensAsync(user.Id, user.Email, roleCode);
 
             _logger.LogInformation("Login succeeded for email {Email} with role {Role}", user.Email, roleCode);
 
@@ -158,14 +149,7 @@ namespace EmployeeManagement.Application.Services
                 Details = $"Email={user.Email}; Role={roleCode}"
             });
 
-            return new AuthResponse
-            {
-                Success = true,
-                Message = "Đăng nhập thành công",
-                AccessToken = accessToken,
-                RefreshToken = rawRefreshToken,
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds()
-            };
+            return OkAuth("Đăng nhập thành công", tokens);
         }
 
         public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
@@ -185,31 +169,17 @@ namespace EmployeeManagement.Application.Services
             if (user == null)
                 return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng" };
 
-            var newRawRefreshToken = Guid.NewGuid().ToString("N");
-            var newTokenHash = HashToken(newRawRefreshToken);
-
-            await _refreshTokenRepository.MarkAsUsedAsync(storedToken.Id, newTokenHash);
-            await _refreshTokenRepository.AddAsync(new RefreshToken
+            if (!user.IsActive)
             {
-                UserId = storedToken.UserId,
-                TokenHash = newTokenHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
-                IsUsed = false,
-                IsRevoked = false,
-                CreatedAt = DateTime.UtcNow
-            });
+                await _refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
+                return new AuthResponse { Success = false, Message = ApiMessages.AccountDisabled };
+            }
 
             var roleCode = await GetUserRoleCodeAsync(user.Id);
-            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roleCode);
+            var tokens = await IssueTokensAsync(user.Id, user.Email, roleCode);
+            await _refreshTokenRepository.MarkAsUsedAsync(storedToken.Id, HashToken(tokens.RefreshToken));
 
-            return new AuthResponse
-            {
-                Success = true,
-                Message = "Làm mới token thành công",
-                AccessToken = accessToken,
-                RefreshToken = newRawRefreshToken,
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds()
-            };
+            return OkAuth("Làm mới token thành công", tokens);
         }
 
         public async Task<AuthResponse> LogoutAsync(string refreshToken)
@@ -250,6 +220,7 @@ namespace EmployeeManagement.Application.Services
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             await _userRepository.UpdateAsync(user);
+            await _refreshTokenRepository.RevokeAllUserTokensAsync(userId);
 
             await _auditLogService.WriteAsync(new AuditLogWriteRequest
             {
@@ -268,9 +239,15 @@ namespace EmployeeManagement.Application.Services
         {
             var user = await _userRepository.GetByEmailAsync(request.Email);
             if (user == null)
-                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng với email này" };
+            {
+                return new AuthResponse
+                {
+                    Success = true,
+                    Message = "Nếu email tồn tại, mã OTP đã được gửi (giả lập)"
+                };
+            }
 
-            var otp = new Random().Next(100000, 999999).ToString();
+            var otp = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
             user.OtpCode = otp;
             user.OtpExpiration = DateTime.UtcNow.AddMinutes(10);
             await _userRepository.UpdateAsync(user);
@@ -311,6 +288,7 @@ namespace EmployeeManagement.Application.Services
             user.OtpCode = null;
             user.OtpExpiration = null;
             await _userRepository.UpdateAsync(user);
+            await _refreshTokenRepository.RevokeAllUserTokensAsync(user.Id);
 
             await _auditLogService.WriteAsync(new AuditLogWriteRequest
             {
@@ -325,6 +303,60 @@ namespace EmployeeManagement.Application.Services
 
             return new AuthResponse { Success = true, Message = "Đặt lại mật khẩu thành công" };
         }
+
+        private async Task<AuthTokenDto> IssueTokensAsync(int userId, string email, string roleCode)
+        {
+            var accessToken = _tokenService.GenerateAccessToken(userId, email, roleCode);
+            var rawRefreshToken = Guid.NewGuid().ToString("N");
+            var refreshDays = Math.Max(1, _tokenService.GetRefreshTokenDays());
+            var expiresMinutes = Math.Max(1, _tokenService.GetAccessTokenExpiresMinutes());
+
+            await _refreshTokenRepository.AddAsync(new RefreshToken
+            {
+                UserId = userId,
+                TokenHash = HashToken(rawRefreshToken),
+                ExpiresAt = DateTime.UtcNow.AddDays(refreshDays),
+                IsUsed = false,
+                IsRevoked = false,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            return new AuthTokenDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = rawRefreshToken,
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(expiresMinutes).ToUnixTimeSeconds()
+            };
+        }
+
+        private async Task TryLinkEmployeeByEmailAsync(int userId, string email)
+        {
+            if (_employeeRepository == null)
+            {
+                return;
+            }
+
+            var employee = await _employeeRepository.GetByEmailAsync(email);
+            if (employee == null || employee.UserId.HasValue)
+            {
+                return;
+            }
+
+            var alreadyLinked = await _employeeRepository.GetByUserIdAsync(userId);
+            if (alreadyLinked != null)
+            {
+                return;
+            }
+
+            await _employeeRepository.LinkUserAsync(employee.Id, userId);
+        }
+
+        private static AuthResponse OkAuth(string message, AuthTokenDto tokens) => new()
+        {
+            Success = true,
+            Message = message,
+            Data = tokens
+        };
 
         private async Task<string> GetUserRoleCodeAsync(int userId)
         {

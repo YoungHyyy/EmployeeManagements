@@ -127,9 +127,16 @@ public class EmployeeDtoValidatorTests
         public Task UpdateAsync(Employee employee) => Task.CompletedTask;
         public Task SoftDeleteAsync(int id) => Task.CompletedTask;
         public Task RestoreAsync(int id) => Task.CompletedTask;
+        public Task<bool> ExistsIncludingDeletedAsync(int id) => Task.FromResult(false);
         public Task<Employee?> GetByIdAsync(int id) => Task.FromResult<Employee?>(null);
+        public Task<Employee?> GetByEmailAsync(string email) => Task.FromResult<Employee?>(null);
+        public Task<Employee?> GetByUserIdAsync(int userId) => Task.FromResult<Employee?>(null);
         public Task<(IEnumerable<Employee> Items, int TotalCount)> ListAsync(EmployeeListQuery query)
             => Task.FromResult<(IEnumerable<Employee>, int)>((Array.Empty<Employee>(), 0));
+        public Task<bool> ExistsByEmployeeCodeAsync(string code) => Task.FromResult(false);
+        public Task<bool> ExistsByDepartmentIdAsync(int departmentId) => Task.FromResult(false);
+        public Task<bool> ExistsByPositionIdAsync(int positionId) => Task.FromResult(false);
+        public Task LinkUserAsync(int employeeId, int userId) => Task.CompletedTask;
 
         public Task<bool> ExistsByEmailAsync(string email, int? excludeEmployeeId = null)
         {

@@ -1,3 +1,4 @@
+using System.Data;
 using System.Reflection;
 using Dapper;
 using EmployeeManagement.Application.Interfaces;
@@ -45,7 +46,13 @@ public abstract class GenericRepository<TEntity> : BaseRepository<TEntity> where
     // CRUD tự động (Dapper parameterized — không EF)
     // ═══════════════════════════════════════════════════════════════════════
 
-    public virtual async Task<int> CreateAsync(TEntity entity)
+    public virtual Task<int> CreateAsync(TEntity entity)
+        => InsertAsync(BuildInsertSql(), entity);
+
+    protected Task<int> CreateAsync(TEntity entity, IDbConnection conn, IDbTransaction tx)
+        => conn.ExecuteScalarAsync<int>(BuildInsertSql(), entity, tx);
+
+    private string BuildInsertSql()
     {
         var columns = InsertColumns;
         if (columns.Count == 0)
@@ -57,12 +64,10 @@ public abstract class GenericRepository<TEntity> : BaseRepository<TEntity> where
         var cols = string.Join(", ", columns.Select(c => $"`{c}`"));
         var vals = string.Join(", ", columns.Select(c => "@" + c));
 
-        var sql = $@"
+        return $@"
             INSERT INTO `{TableName}` ({cols}, `IsDeleted`, `CreatedAt`)
             VALUES ({vals}, 0, NOW());
             SELECT LAST_INSERT_ID();";
-
-        return await InsertAsync(sql, entity);
     }
 
     public virtual async Task UpdateAsync(TEntity entity)
@@ -123,6 +128,14 @@ public abstract class GenericRepository<TEntity> : BaseRepository<TEntity> where
     {
         var count = await ExecuteScalarAsync<int>(
             $@"SELECT COUNT(1) FROM `{TableName}` WHERE `Id` = @id AND `IsDeleted` = 0",
+            new { id });
+        return count > 0;
+    }
+
+    public virtual async Task<bool> ExistsIncludingDeletedAsync(int id)
+    {
+        var count = await ExecuteScalarAsync<int>(
+            $@"SELECT COUNT(1) FROM `{TableName}` WHERE `Id` = @id",
             new { id });
         return count > 0;
     }

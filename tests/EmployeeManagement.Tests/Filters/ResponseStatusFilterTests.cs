@@ -129,7 +129,7 @@ public class ResponseStatusFilterTests
             {
                 Success = true,
                 Message = "Đăng nhập thành công",
-                AccessToken = "tok"
+                Data = new AuthTokenDto { AccessToken = "tok" }
             })
             {
                 StatusCode = StatusCodes.Status400BadRequest
@@ -157,7 +157,7 @@ public class ResponseStatusFilterTests
             {
                 Success = true,
                 Message = "Đăng nhập thành công",
-                AccessToken = "abc"
+                Data = new AuthTokenDto { AccessToken = "abc" }
             }));
         await RunFullPipelineAsync(okCtx);
         ((ObjectResult)okCtx.Result!).StatusCode.Should().Be(200);
